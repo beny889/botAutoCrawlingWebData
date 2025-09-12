@@ -9,7 +9,8 @@ services:
       python --version
       pip install --no-cache-dir numpy==1.24.4
       pip install --no-cache-dir -r requirements.txt
-      playwright install chromium
+      playwright install-deps
+      playwright install chromium --with-deps
     startCommand: |
       export TZ=Asia/Jakarta
       python main_scheduler.py --all --headless --production --single-session
