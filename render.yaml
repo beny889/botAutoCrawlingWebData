@@ -9,16 +9,19 @@ services:
       python --version
       pip install --no-cache-dir numpy==1.24.4
       pip install --no-cache-dir -r requirements.txt
-      apt-get update && apt-get install -y wget gnupg unzip
+      apt-get update
+      apt-get install -y wget gnupg unzip curl
       wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add -
-      echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list
-      apt-get update && apt-get install -y google-chrome-stable
-      which google-chrome || echo "Chrome not found in PATH"
-      google-chrome --version || echo "Chrome version check failed"
+      echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | tee /etc/apt/sources.list.d/google-chrome.list
+      apt-get update
+      apt-get install -y google-chrome-stable
+      which google-chrome-stable && echo "Chrome installed successfully" || echo "Chrome installation failed"
+      google-chrome-stable --version || echo "Chrome version check failed"
     startCommand: |
       export TZ=Asia/Jakarta
       echo "Starting automation with Selenium WebDriver..."
-      google-chrome --version
+      google-chrome-stable --version || echo "Chrome not available"
+      which google-chrome-stable && echo "Chrome found at: $(which google-chrome-stable)" || echo "Chrome not found"
       python main_scheduler.py --all --headless --production --single-session
     # Environment variables must be set in Render.com dashboard:
     # BACKEND_USERNAME, BACKEND_PASSWORD, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID
