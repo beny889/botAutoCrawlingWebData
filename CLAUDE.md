@@ -90,7 +90,8 @@ GOOGLE_SHEET_URLs = {
     "pembayaran_koin": "1KWEMz3R5N1EnlS9NdJS9NiQRUsBuTAIfEoaYpS2NhAk"
 }
 
-# Telegram Notifications
+# Telegram Notifications - DISABLE/ENABLE Control
+DISABLE_NOTIFICATIONS = "true"  # Set to disable all Telegram notifications
 TELEGRAM_TOKEN = "7617892433:AAHrMesr-6MosGqMq5z0JVxFKa61ZAr_abM"
 TELEGRAM_CHAT_ID = "-4924885979"
 
@@ -224,6 +225,16 @@ python single_session_automation.py --test point_trx --debug
 python single_session_automation.py --all --date 2025-09-12
 ```
 
+**Testing Mode (Notifications Disabled):**
+```python
+# Disable Telegram notifications during testing/development
+set DISABLE_NOTIFICATIONS=true
+python main_scheduler.py --all --date 2025-09-12
+
+# Alternative: Environment variable for batch files
+export DISABLE_NOTIFICATIONS=true && python main_scheduler.py --all
+```
+
 #### Legacy Individual Sessions (Fallback)
 ```python
 # Use individual sessions mode
@@ -237,6 +248,10 @@ python automation.py --date 2025-09-09
 ```python
 python test_setup.py                   # Environment validation
 python debug_date.py                   # Date format debugging
+
+# Test notification disable functionality
+set DISABLE_NOTIFICATIONS=true
+python test_notifications.py           # Validate notification disable
 ```
 
 ### Error Handling Patterns
@@ -561,6 +576,7 @@ When working on this project:
 5. **Security**: Never log sensitive information or credentials
 6. **Performance**: Consider execution time impact of any modifications
 7. **Compatibility**: Ensure changes work with existing Google Sheets integration
+8. **Testing Mode**: Use `DISABLE_NOTIFICATIONS=true` environment variable to disable Telegram notifications during development and testing
 
 ### Code Review Focus Areas
 - Exception handling completeness
@@ -913,4 +929,53 @@ initial_files = list(self.download_folder.glob("*.xlsx"))
 
 ---
 
-*Last Updated: September 12, 2025 - Active Selenium migration and cloud deployment troubleshooting*
+### Session: September 13, 2025 - Telegram Notification Disable Feature
+
+**Session Type**: Development enhancement for testing and debugging support  
+**Duration**: ~1 hour  
+**Participants**: Claude Code AI Assistant + User  
+**Objective**: Implement notification disable functionality to enable safe testing without sending Telegram messages
+
+#### Implementation Overview:
+**Problem**: During development and testing, Telegram notifications are being sent to the production chat group, causing noise and confusion for stakeholders.
+
+**Solution**: Environment variable-based notification disable system with automatic credential nullification.
+
+#### Technical Implementation:
+1. **Configuration Enhancement**:
+   - Added `DISABLE_NOTIFICATIONS` environment variable support in `shared/config.py`
+   - Automatic credential nullification when notifications disabled
+   - Updated environment validation to skip Telegram requirements when disabled
+
+2. **Backward Compatibility**:
+   - System maintains full compatibility with existing notification setup
+   - No changes required to existing scripts - purely additive enhancement
+   - TelegramNotifier class automatically handles missing credentials gracefully
+
+3. **Developer Experience**:
+   - Simple environment variable control: `set DISABLE_NOTIFICATIONS=true`
+   - Clear logging of notification status in development mode
+   - Test script created for validation (`test_notifications.py`)
+
+#### Testing & Validation:
+- ✅ **Functionality Verified**: Environment variable properly disables all notifications
+- ✅ **Credential Handling**: TELEGRAM_TOKEN and TELEGRAM_CHAT_ID set to None automatically
+- ✅ **TelegramNotifier Response**: enabled=False, all methods return False instead of sending
+- ✅ **Production Safety**: No risk of breaking existing production notification setup
+
+#### Usage for Development:
+```bash
+# Disable notifications during testing/development
+set DISABLE_NOTIFICATIONS=true
+python main_scheduler.py --all --date 2025-09-13
+
+# Normal production operation (no change needed)
+python main_scheduler.py --all --date 2025-09-13
+```
+
+#### Session Outcome:
+**Safe testing environment achieved** - Developers can now run automation scripts without sending Telegram notifications to production channels. Feature is production-ready and committed to repository.
+
+---
+
+*Last Updated: September 13, 2025 - Telegram notification disable feature implemented for safe testing*

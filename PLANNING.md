@@ -148,10 +148,12 @@ Files    Auth Once    (Excel)     (PDF)      (PDF)     (PDF)      Upload x4     
 - **datetime**: Timestamp management  
 - **json**: Configuration file handling
 
-#### Communication & Notifications (NEW)
+#### Communication & Notifications (NEW - ENHANCED)
 - **requests**: HTTP library for Telegram API communication
 - **Telegram Bot API**: Real-time notification delivery system
 - **Message Templates**: Structured notification format system
+- **Environment Control**: DISABLE_NOTIFICATIONS variable for safe development testing
+- **Automatic Credential Management**: Conditional credential loading based on notification state
 
 #### Security
 - **google.oauth2**: Google API authentication

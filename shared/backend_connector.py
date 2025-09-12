@@ -82,37 +82,62 @@ class BackendConnector:
             if not chrome_found:
                 self.logger.warning("No Chrome/Chromium binary found, using system default")
             
-            # Use ChromeDriverManager for automatic driver management
-            try:
-                service = Service(ChromeDriverManager().install())
-                self.driver = webdriver.Chrome(service=service, options=chrome_options)
-                self.logger.info("Chrome WebDriver initialized successfully")
-            except Exception as e:
-                self.logger.error(f"Failed to setup Chrome WebDriver: {str(e)}")
-                # Try without binary location specified
-                if chrome_found:
-                    self.logger.info("Retrying without explicit binary location...")
-                    chrome_options_retry = Options()
+            # Use ChromeDriverManager with enhanced error handling
+            driver_initialized = False
+            
+            # Strategy 1: Try with detected browser binary
+            if chrome_found:
+                try:
+                    self.logger.info("Attempting ChromeDriver setup with detected browser binary...")
+                    service = Service(ChromeDriverManager().install())
+                    self.driver = webdriver.Chrome(service=service, options=chrome_options)
+                    driver_initialized = True
+                    self.logger.info("Chrome WebDriver initialized successfully with binary location")
+                except Exception as e:
+                    self.logger.warning(f"Failed with binary location: {str(e)}")
+            
+            # Strategy 2: Try without explicit binary location (system PATH)
+            if not driver_initialized:
+                try:
+                    self.logger.info("Attempting ChromeDriver setup without explicit binary...")
+                    chrome_options_system = Options()
                     
                     # Re-add all options without binary location
                     if self.browser_config["headless"]:
-                        chrome_options_retry.add_argument("--headless")
+                        chrome_options_system.add_argument("--headless")
                     
-                    chrome_options_retry.add_argument("--no-sandbox")
-                    chrome_options_retry.add_argument("--disable-dev-shm-usage")
-                    chrome_options_retry.add_argument("--disable-gpu")
-                    chrome_options_retry.add_argument("--window-size=1920,1080")
-                    chrome_options_retry.add_argument("--disable-extensions")
-                    chrome_options_retry.add_argument("--disable-plugins")
-                    chrome_options_retry.add_argument("--disable-web-security")
-                    chrome_options_retry.add_argument("--allow-running-insecure-content")
-                    chrome_options_retry.add_experimental_option("prefs", prefs)
+                    chrome_options_system.add_argument("--no-sandbox")
+                    chrome_options_system.add_argument("--disable-dev-shm-usage")
+                    chrome_options_system.add_argument("--disable-gpu")
+                    chrome_options_system.add_argument("--window-size=1920,1080")
+                    chrome_options_system.add_argument("--disable-extensions")
+                    chrome_options_system.add_argument("--disable-plugins")
+                    chrome_options_system.add_argument("--disable-web-security")
+                    chrome_options_system.add_argument("--allow-running-insecure-content")
+                    chrome_options_system.add_experimental_option("prefs", prefs)
                     
                     service = Service(ChromeDriverManager().install())
-                    self.driver = webdriver.Chrome(service=service, options=chrome_options_retry)
-                    self.logger.info("Chrome WebDriver initialized on retry")
-                else:
-                    raise
+                    self.driver = webdriver.Chrome(service=service, options=chrome_options_system)
+                    driver_initialized = True
+                    self.logger.info("Chrome WebDriver initialized successfully without binary location")
+                except Exception as e:
+                    self.logger.warning(f"Failed without binary location: {str(e)}")
+            
+            # Strategy 3: Try with specific Chrome versions and manual ChromeDriver
+            if not driver_initialized:
+                try:
+                    self.logger.info("Attempting manual ChromeDriver setup...")
+                    # Try to use ChromeDriver that might be pre-installed
+                    service = Service()  # Use system ChromeDriver if available
+                    self.driver = webdriver.Chrome(service=service, options=chrome_options_system)
+                    driver_initialized = True
+                    self.logger.info("Chrome WebDriver initialized with system ChromeDriver")
+                except Exception as e:
+                    self.logger.error(f"All Chrome WebDriver strategies failed: {str(e)}")
+                    raise RuntimeError(f"Unable to initialize Chrome WebDriver. Browser installation may have failed. Last error: {str(e)}")
+            
+            if not driver_initialized:
+                raise RuntimeError("Chrome WebDriver could not be initialized after all attempts")
             
             # Setup wait
             self.wait = WebDriverWait(self.driver, self.browser_config["timeout"] // 1000)

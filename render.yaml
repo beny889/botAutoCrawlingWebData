@@ -1,45 +1,114 @@
 services:
-  - type: cron
-    name: automation-bot-2x-daily
+  - type: web
+    name: automation-bot-scheduler
     env: python
     plan: starter
     pythonVersion: "3.11.9"
-    schedule: "0 1,11 * * *"  # 8 AM & 6 PM WIB (1 AM & 11 AM UTC)
     buildCommand: |
+      echo "=== Starting Enhanced Browser Installation ==="
       python --version
+      
+      # Install Python dependencies first
+      pip install --no-cache-dir --upgrade pip
       pip install --no-cache-dir numpy==1.24.4
       pip install --no-cache-dir -r requirements.txt
-      # Install required system packages
-      apt-get update && apt-get install -y wget unzip curl gnupg2 software-properties-common
-      # Method 1: Use snap to install chromium (often works when apt fails)
-      snap install chromium || echo "Snap chromium install failed"
-      # Method 2: Install chromium via apt
-      apt-get install -y chromium-browser chromium-chromedriver || echo "Apt chromium install failed"  
-      # Method 3: Manual Chrome installation with dependencies
-      wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add -
-      echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
+      
+      # System package installation with root privileges (available during build)
+      echo "Installing system dependencies..."
+      apt-get update
+      apt-get install -y wget unzip curl gnupg2 software-properties-common xvfb
+      
+      # Method 1: Install Google Chrome stable (most reliable)
+      echo "Method 1: Installing Google Chrome via official repository..."
+      wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/googlechrome-linux-keyring.gpg
+      echo "deb [arch=amd64 signed-by=/usr/share/keyrings/googlechrome-linux-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | tee /etc/apt/sources.list.d/google-chrome.list
       apt-get update
       apt-get install -y google-chrome-stable || echo "Google Chrome install failed"
-      # Create symbolic links to ensure browsers are found
-      ln -sf /snap/bin/chromium /usr/bin/chromium-browser 2>/dev/null || echo "Snap chromium link failed"
-      ln -sf /usr/bin/google-chrome-stable /usr/bin/google-chrome 2>/dev/null || echo "Chrome link failed"
-      # Final browser availability check
-      echo "=== Final Browser Availability ==="
-      for browser in chromium-browser chromium google-chrome-stable google-chrome /snap/bin/chromium; do
+      
+      # Method 2: Fallback to Chromium
+      echo "Method 2: Installing Chromium as fallback..."
+      apt-get install -y chromium-browser chromium-chromedriver || echo "Chromium install failed"
+      
+      # Method 3: Create necessary directories and links
+      echo "Method 3: Creating browser links and directories..."
+      mkdir -p /opt/chrome
+      ln -sf /usr/bin/google-chrome-stable /opt/chrome/chrome || echo "Chrome link creation failed"
+      ln -sf /usr/bin/chromium-browser /opt/chrome/chromium || echo "Chromium link creation failed"
+      
+      # Final comprehensive browser availability check
+      echo "=== Final Browser Installation Verification ==="
+      echo "Checking available browsers:"
+      
+      for browser in google-chrome-stable google-chrome chromium-browser chromium; do
         if command -v "$browser" >/dev/null 2>&1; then
-          echo "✓ Found: $browser at $(which $browser 2>/dev/null || echo /snap/bin/chromium)"
-          "$browser" --version 2>/dev/null || echo "  Version check failed for $browser"
+          browser_path=$(which "$browser")
+          echo "✓ FOUND: $browser at $browser_path"
+          if "$browser" --version 2>/dev/null; then
+            echo "  Version check: SUCCESS"
+          else
+            echo "  Version check: FAILED"
+          fi
         else
-          echo "✗ Missing: $browser"
+          echo "✗ MISSING: $browser"
         fi
       done
-      echo "=== End Browser Check ==="
+      
+      echo "Checking browser executables with full paths:"
+      test -f /usr/bin/google-chrome-stable && echo "✓ /usr/bin/google-chrome-stable exists" || echo "✗ /usr/bin/google-chrome-stable missing"
+      test -f /usr/bin/chromium-browser && echo "✓ /usr/bin/chromium-browser exists" || echo "✗ /usr/bin/chromium-browser missing"
+      
+      echo "=== Browser Installation Complete ==="
     startCommand: |
+      # Set up environment
       export TZ=Asia/Jakarta
-      echo "Starting automation with Selenium WebDriver..."
-      google-chrome-stable --version || echo "Chrome not available"
-      which google-chrome-stable && echo "Chrome found at: $(which google-chrome-stable)" || echo "Chrome not found"
-      python main_scheduler.py --all --headless --production --single-session
+      export DISPLAY=:99
+      export PYTHONUNBUFFERED=1
+      
+      # Start virtual display for headless Chrome
+      Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
+      
+      # Verify browser availability at runtime
+      echo "=== Runtime Browser Verification ==="
+      if command -v google-chrome-stable >/dev/null 2>&1; then
+        echo "✓ Google Chrome available: $(google-chrome-stable --version 2>/dev/null || echo 'Version check failed')"
+      elif command -v chromium-browser >/dev/null 2>&1; then
+        echo "✓ Chromium available: $(chromium-browser --version 2>/dev/null || echo 'Version check failed')"
+      else
+        echo "✗ No browser found - automation will fail"
+      fi
+      
+      # Start the scheduler in continuous mode
+      echo "Starting continuous automation scheduler..."
+      python -c "
+import time
+import subprocess
+import schedule
+from datetime import datetime
+
+def run_automation():
+    print(f'[{datetime.now()}] Starting scheduled automation run...')
+    try:
+        result = subprocess.run(['python', 'main_scheduler.py', '--all', '--headless', '--production', '--single-session'], 
+                              capture_output=True, text=True, timeout=600)
+        print(f'Automation completed with return code: {result.returncode}')
+        if result.stdout:
+            print('STDOUT:', result.stdout[-1000:])  # Last 1000 chars
+        if result.stderr:
+            print('STDERR:', result.stderr[-1000:])  # Last 1000 chars
+    except Exception as e:
+        print(f'Automation failed with error: {e}')
+
+# Schedule automation runs
+schedule.every().day.at('01:00').do(run_automation)  # 8 AM WIB
+schedule.every().day.at('11:00').do(run_automation)  # 6 PM WIB
+
+print('Automation scheduler started - waiting for scheduled times...')
+print('Schedule: 01:00 UTC (8 AM WIB) and 11:00 UTC (6 PM WIB)')
+
+while True:
+    schedule.run_pending()
+    time.sleep(60)  # Check every minute
+"
     # Environment variables must be set in Render.com dashboard:
     # BACKEND_USERNAME, BACKEND_PASSWORD, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID
     envVars:
