@@ -66,7 +66,9 @@ class BackendConnector:
                 "/usr/bin/google-chrome-stable",
                 "/usr/bin/google-chrome", 
                 "/usr/bin/chromium-browser",
-                "/usr/bin/chromium"
+                "/usr/bin/chromium",
+                "/snap/bin/chromium",  # Snap-installed Chromium
+                "/var/lib/snapd/snap/bin/chromium"  # Alternative snap path
             ]
             
             chrome_found = False

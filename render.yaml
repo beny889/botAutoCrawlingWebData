@@ -9,21 +9,30 @@ services:
       python --version
       pip install --no-cache-dir numpy==1.24.4
       pip install --no-cache-dir -r requirements.txt
+      # Install required system packages
+      apt-get update && apt-get install -y wget unzip curl gnupg2 software-properties-common
+      # Method 1: Use snap to install chromium (often works when apt fails)
+      snap install chromium || echo "Snap chromium install failed"
+      # Method 2: Install chromium via apt
+      apt-get install -y chromium-browser chromium-chromedriver || echo "Apt chromium install failed"  
+      # Method 3: Manual Chrome installation with dependencies
+      wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add -
+      echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
       apt-get update
-      apt-get install -y wget unzip curl xvfb
-      # Try multiple browser installation methods
-      # Method 1: Install Chromium (more reliable on Linux)
-      apt-get install -y chromium-browser
-      # Method 2: Try Chrome installation as fallback
-      wget -q -O /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb || echo "Chrome download failed"
-      apt-get install -y /tmp/chrome.deb || echo "Chrome deb install failed"
-      rm -f /tmp/chrome.deb
-      apt-get install -yf
-      # Check which browsers are available
-      echo "=== Browser Check ==="
-      which chromium-browser && echo "Chromium found at: $(which chromium-browser)" && chromium-browser --version
-      which google-chrome-stable && echo "Chrome found at: $(which google-chrome-stable)" && google-chrome-stable --version
-      which google-chrome && echo "Chrome found at: $(which google-chrome)" && google-chrome --version
+      apt-get install -y google-chrome-stable || echo "Google Chrome install failed"
+      # Create symbolic links to ensure browsers are found
+      ln -sf /snap/bin/chromium /usr/bin/chromium-browser 2>/dev/null || echo "Snap chromium link failed"
+      ln -sf /usr/bin/google-chrome-stable /usr/bin/google-chrome 2>/dev/null || echo "Chrome link failed"
+      # Final browser availability check
+      echo "=== Final Browser Availability ==="
+      for browser in chromium-browser chromium google-chrome-stable google-chrome /snap/bin/chromium; do
+        if command -v "$browser" >/dev/null 2>&1; then
+          echo "✓ Found: $browser at $(which $browser 2>/dev/null || echo /snap/bin/chromium)"
+          "$browser" --version 2>/dev/null || echo "  Version check failed for $browser"
+        else
+          echo "✗ Missing: $browser"
+        fi
+      done
       echo "=== End Browser Check ==="
     startCommand: |
       export TZ=Asia/Jakarta
