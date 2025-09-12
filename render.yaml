@@ -16,6 +16,8 @@ services:
       ls -la /opt/render/.cache/ms-playwright/ || echo "Playwright cache not found"
     startCommand: |
       export TZ=Asia/Jakarta
+      echo "Checking for Playwright browsers..."
+      python -c "from playwright.sync_api import sync_playwright; sync_playwright().start()" || python -m playwright install chromium
       python main_scheduler.py --all --headless --production --single-session
     # Environment variables must be set in Render.com dashboard:
     # BACKEND_USERNAME, BACKEND_PASSWORD, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID
