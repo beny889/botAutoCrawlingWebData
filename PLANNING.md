@@ -13,7 +13,7 @@ Transform manual, error-prone data export workflows into automated, reliable pro
 
 ### 1.3 Value Proposition (SELENIUM MIGRATION ACTIVE)
 - **Technology Modernization**: Successfully migrated from Playwright to Selenium WebDriver for enhanced cloud compatibility
-- **Multi-Browser Strategy**: Chromium + Chrome fallback approach for maximum deployment reliability
+- **Comprehensive Installation Strategy**: Triple-method approach (Snap + APT + Manual) for maximum deployment reliability
 - **Enhanced Stability**: Selenium WebDriver's proven track record for cloud automation environments
 - **Maintained Performance**: All speed targets preserved during migration (<3 minutes execution)
 - **Real-time Monitoring**: **Telegram notifications** working with migration status updates
@@ -114,11 +114,11 @@ Files    Auth Once    (Excel)     (PDF)      (PDF)     (PDF)      Upload x4     
   - Alternatives Considered: Node.js (rejected due to less mature automation libraries)
 
 #### Browser Automation
-- **Selenium WebDriver + Multi-Browser Strategy** (MIGRATED from Playwright)
+- **Selenium WebDriver + Comprehensive Installation Strategy** (MIGRATED from Playwright)
   - Rationale: Superior cloud deployment reliability and cross-platform stability
-  - Browser Strategy: Chromium (primary) + Chrome (fallback) for maximum compatibility
-  - Pros: Industry standard, enhanced error handling, multi-browser fallback
-  - Migration Status: Code conversion complete, cloud deployment troubleshooting active
+  - Installation Strategy: Triple-method approach (Snap + APT + Manual) for maximum compatibility
+  - Pros: Industry standard, comprehensive installation methods, extensive path detection
+  - Migration Status: Code conversion complete, advanced installation strategy deployed
   - Migration Reason: Playwright had persistent browser installation failures on cloud platforms
   - Previous: Playwright (migrated due to unresolvable cloud deployment issues)
 
@@ -171,7 +171,7 @@ Files    Auth Once    (Excel)     (PDF)      (PDF)     (PDF)      Upload x4     
 - **render.yaml**: Declarative service configuration with multi-browser installation
 - **Environment Variables**: Secure credential management in cloud
 - **Cron Scheduling**: "0 1,11 * * *" (8 AM & 6 PM WIB)
-- **Build Process**: Multi-browser installation (Chromium + Chrome) with enhanced error handling
+- **Build Process**: Comprehensive triple-method installation (Snap + APT + Manual) with advanced error handling
 
 #### Monitoring & Alerting
 - **Telegram API**: Real-time notification system
