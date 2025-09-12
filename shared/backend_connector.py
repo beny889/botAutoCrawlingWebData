@@ -60,29 +60,14 @@ class BackendConnector:
             }
             chrome_options.add_experimental_option("prefs", prefs)
             
-            # Try multiple Chrome binary paths
-            chrome_paths = [
-                "/usr/bin/google-chrome-stable",
-                "/usr/bin/google-chrome",
-                "/usr/bin/chromium-browser",
-                "/usr/bin/chromium",
-            ]
-            
-            chrome_binary_found = False
-            for chrome_path in chrome_paths:
-                try:
-                    import os
-                    if os.path.exists(chrome_path):
-                        chrome_options.binary_location = chrome_path
-                        self.logger.info(f"Found Chrome binary at: {chrome_path}")
-                        chrome_binary_found = True
-                        break
-                except Exception as e:
-                    self.logger.debug(f"Chrome path {chrome_path} not accessible: {str(e)}")
-                    continue
-            
-            if not chrome_binary_found:
-                self.logger.warning("No Chrome binary found, relying on ChromeDriverManager auto-detection")
+            # For cloud deployment, use standard Chrome path
+            import os
+            chrome_path = "/usr/bin/google-chrome-stable"
+            if os.path.exists(chrome_path):
+                chrome_options.binary_location = chrome_path
+                self.logger.info(f"Using Chrome binary at: {chrome_path}")
+            else:
+                self.logger.warning(f"Chrome not found at {chrome_path}, using ChromeDriverManager auto-detection")
             
             # Use ChromeDriverManager for automatic driver management
             try:
@@ -92,14 +77,11 @@ class BackendConnector:
             except Exception as e:
                 self.logger.error(f"Failed to setup Chrome WebDriver: {str(e)}")
                 # Try without binary location specified
-                if chrome_binary_found:
-                    self.logger.info("Retrying without explicit binary location...")
-                    chrome_options.binary_location = None
-                    service = Service(ChromeDriverManager().install())
-                    self.driver = webdriver.Chrome(service=service, options=chrome_options)
-                    self.logger.info("Chrome WebDriver initialized on retry")
-                else:
-                    raise
+                self.logger.info("Retrying without explicit binary location...")
+                chrome_options.binary_location = None
+                service = Service(ChromeDriverManager().install())
+                self.driver = webdriver.Chrome(service=service, options=chrome_options)
+                self.logger.info("Chrome WebDriver initialized on retry")
             
             # Setup wait
             self.wait = WebDriverWait(self.driver, self.browser_config["timeout"] // 1000)
