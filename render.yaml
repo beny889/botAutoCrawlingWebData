@@ -1,0 +1,22 @@
+services:
+  - type: cron
+    name: automation-bot-2x-daily
+    env: python
+    plan: starter
+    schedule: "0 1,11 * * *"  # 8 AM & 6 PM WIB (1 AM & 11 AM UTC)
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
+      playwright install chromium --with-deps
+    startCommand: |
+      export TZ=Asia/Jakarta
+      python main_scheduler.py --all --headless --production --single-session
+    # Environment variables must be set in Render.com dashboard:
+    # BACKEND_USERNAME, BACKEND_PASSWORD, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID
+    envVars:
+      - key: HEADLESS
+        value: "true"
+      - key: TZ
+        value: "Asia/Jakarta"
+      - key: PYTHONUNBUFFERED
+        value: "1"
