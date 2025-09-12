@@ -32,7 +32,7 @@ class BackendConnector:
         self.download_folder.mkdir(exist_ok=True)
         
     def setup_browser(self):
-        """Setup Selenium WebDriver"""
+        """Setup Selenium WebDriver with robust Chrome detection"""
         self.logger.info(f"Setting up browser for {self.export_config['name']}...")
         
         try:
@@ -48,6 +48,8 @@ class BackendConnector:
             chrome_options.add_argument("--window-size=1920,1080")
             chrome_options.add_argument("--disable-extensions")
             chrome_options.add_argument("--disable-plugins")
+            chrome_options.add_argument("--disable-web-security")
+            chrome_options.add_argument("--allow-running-insecure-content")
             
             # Download preferences
             prefs = {
@@ -58,14 +60,46 @@ class BackendConnector:
             }
             chrome_options.add_experimental_option("prefs", prefs)
             
+            # Try multiple Chrome binary paths
+            chrome_paths = [
+                "/usr/bin/google-chrome-stable",
+                "/usr/bin/google-chrome",
+                "/usr/bin/chromium-browser",
+                "/usr/bin/chromium",
+            ]
+            
+            chrome_binary_found = False
+            for chrome_path in chrome_paths:
+                try:
+                    import os
+                    if os.path.exists(chrome_path):
+                        chrome_options.binary_location = chrome_path
+                        self.logger.info(f"Found Chrome binary at: {chrome_path}")
+                        chrome_binary_found = True
+                        break
+                except Exception as e:
+                    self.logger.debug(f"Chrome path {chrome_path} not accessible: {str(e)}")
+                    continue
+            
+            if not chrome_binary_found:
+                self.logger.warning("No Chrome binary found, relying on ChromeDriverManager auto-detection")
+            
             # Use ChromeDriverManager for automatic driver management
             try:
                 service = Service(ChromeDriverManager().install())
                 self.driver = webdriver.Chrome(service=service, options=chrome_options)
-                self.logger.info("Using Chrome from ChromeDriverManager")
+                self.logger.info("Chrome WebDriver initialized successfully")
             except Exception as e:
                 self.logger.error(f"Failed to setup Chrome WebDriver: {str(e)}")
-                raise
+                # Try without binary location specified
+                if chrome_binary_found:
+                    self.logger.info("Retrying without explicit binary location...")
+                    chrome_options.binary_location = None
+                    service = Service(ChromeDriverManager().install())
+                    self.driver = webdriver.Chrome(service=service, options=chrome_options)
+                    self.logger.info("Chrome WebDriver initialized on retry")
+                else:
+                    raise
             
             # Setup wait
             self.wait = WebDriverWait(self.driver, self.browser_config["timeout"] // 1000)

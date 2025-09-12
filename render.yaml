@@ -11,12 +11,14 @@ services:
       pip install --no-cache-dir -r requirements.txt
       apt-get update
       apt-get install -y wget gnupg unzip curl
-      wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add -
-      echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | tee /etc/apt/sources.list.d/google-chrome.list
+      curl -sSL https://dl.google.com/linux/linux_signing_key.pub | apt-key add -
+      echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
       apt-get update
       apt-get install -y google-chrome-stable
-      which google-chrome-stable && echo "Chrome installed successfully" || echo "Chrome installation failed"
-      google-chrome-stable --version || echo "Chrome version check failed"
+      ln -sf /usr/bin/google-chrome-stable /usr/bin/google-chrome
+      which google-chrome-stable && echo "Chrome installed at: $(which google-chrome-stable)"
+      which google-chrome && echo "Chrome symlink created at: $(which google-chrome)"
+      google-chrome-stable --version && echo "Chrome version verified"
     startCommand: |
       export TZ=Asia/Jakarta
       echo "Starting automation with Selenium WebDriver..."
