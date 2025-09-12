@@ -1,9 +1,8 @@
 """
-Main scheduler for all export automation tasks
+Main scheduler for all export automation tasks using Selenium
 Run multiple exports in sequence or parallel
 """
 
-import asyncio
 import logging
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -55,7 +54,7 @@ class MainScheduler:
             chat_id=ExportConfig.TELEGRAM_CHAT_ID
         )
         
-        # Legacy individual export classes
+        # Individual export classes
         self.exports = {
             "transaksi": TransaksiExportAutomation,
             "point_trx": PointTrxExportAutomation,
@@ -63,7 +62,7 @@ class MainScheduler:
             "pembayaran_koin": PembayaranKoinExportAutomation
         }
     
-    async def run_single_export(self, export_type, start_date=None, end_date=None):
+    def run_single_export(self, export_type, start_date=None, end_date=None):
         """Run a single export task"""
         if export_type not in self.exports:
             raise ValueError(f"Unknown export type: {export_type}")
@@ -75,9 +74,9 @@ class MainScheduler:
             
             # Handle user export (no date parameters)
             if export_type == "user":
-                result = await automation.run_export()
+                result = automation.run_export()
             else:
-                result = await automation.run_export(start_date, end_date)
+                result = automation.run_export(start_date, end_date)
             
             if result:
                 self.logger.info(f"{export_type} export completed successfully!")
@@ -90,7 +89,7 @@ class MainScheduler:
             self.logger.error(f"{export_type} export failed with exception: {str(e)}")
             return False
     
-    async def run_all_exports_sequential(self, start_date=None, end_date=None):
+    def run_all_exports_sequential(self, start_date=None, end_date=None):
         """Run all exports one by one (sequential)"""
         start_time = datetime.now()
         
@@ -109,7 +108,7 @@ class MainScheduler:
             production = '--production' in sys.argv
             
             single_session = SingleSessionAutomation(headless=headless, debug=debug, production=production)
-            result = await single_session.run_all_exports_sequential(start_date, end_date)
+            result = single_session.run_all_exports_sequential(start_date, end_date)
             
             if result["success"]:
                 self.logger.info("Single session automation completed successfully!")
@@ -123,11 +122,11 @@ class MainScheduler:
                 self.telegram.send_system_error(result.get('error', 'Unknown error'), "single_session")
                 # Fallback to individual exports
                 self.logger.info("Falling back to individual export mode...")
-                return await self._run_individual_exports(start_date, end_date, start_time)
+                return self._run_individual_exports(start_date, end_date, start_time)
         else:
-            return await self._run_individual_exports(start_date, end_date, start_time)
+            return self._run_individual_exports(start_date, end_date, start_time)
     
-    async def _run_individual_exports(self, start_date=None, end_date=None, start_time=None):
+    def _run_individual_exports(self, start_date=None, end_date=None, start_time=None):
         """Run exports using individual automation classes (legacy mode)"""
         if start_time is None:
             start_time = datetime.now()
@@ -141,7 +140,7 @@ class MainScheduler:
             export_start_time = datetime.now()
             
             try:
-                result = await self.run_single_export(export_type, start_date, end_date)
+                result = self.run_single_export(export_type, start_date, end_date)
                 execution_time = (datetime.now() - export_start_time).total_seconds()
                 
                 if result:
@@ -173,48 +172,18 @@ class MainScheduler:
         
         return results
     
-    async def run_all_exports_parallel(self, start_date=None, end_date=None):
-        """Run all exports simultaneously (parallel)"""
+    def run_all_exports_parallel(self, start_date=None, end_date=None):
+        """Run all exports simultaneously (parallel) - Note: Not truly parallel with Selenium"""
         if self.use_single_session:
             self.logger.warning("Single session mode doesn't support parallel execution - running sequential instead")
-            return await self.run_all_exports_sequential(start_date, end_date)
+            return self.run_all_exports_sequential(start_date, end_date)
         
-        self.logger.info("Starting all exports in parallel mode...")
-        
-        # Create tasks for all exports
-        tasks = []
-        for export_type in self.exports.keys():
-            task = asyncio.create_task(
-                self.run_single_export(export_type, start_date, end_date),
-                name=export_type
-            )
-            tasks.append(task)
-        
-        # Wait for all tasks to complete
-        results_list = await asyncio.gather(*tasks, return_exceptions=True)
-        
-        # Create results dictionary
-        results = {}
-        for i, export_type in enumerate(self.exports.keys()):
-            result = results_list[i]
-            if isinstance(result, Exception):
-                self.logger.error(f"{export_type} export failed with exception: {str(result)}")
-                results[export_type] = False
-            else:
-                results[export_type] = result
-        
-        # Summary
-        successful = [k for k, v in results.items() if v]
-        failed = [k for k, v in results.items() if not v]
-        
-        self.logger.info(f"Parallel execution completed!")
-        self.logger.info(f"Successful exports: {successful}")
-        if failed:
-            self.logger.warning(f"Failed exports: {failed}")
-        
-        return results
+        self.logger.info("Starting all exports in sequential mode (Selenium limitation)...")
+        # Note: Selenium doesn't support true parallel execution like asyncio
+        # Running sequentially instead
+        return self._run_individual_exports(start_date, end_date)
     
-    async def run_daily_exports(self, target_date=None, mode="sequential"):
+    def run_daily_exports(self, target_date=None, mode="sequential"):
         """Run daily exports for specific date"""
         if not target_date:
             # Default to yesterday
@@ -223,11 +192,11 @@ class MainScheduler:
         self.logger.info(f"Running daily exports for {target_date} in {mode} mode")
         
         if mode == "parallel":
-            return await self.run_all_exports_parallel(target_date, target_date)
+            return self.run_all_exports_parallel(target_date, target_date)
         else:
-            return await self.run_all_exports_sequential(target_date, target_date)
+            return self.run_all_exports_sequential(target_date, target_date)
     
-    async def run_weekly_exports(self, mode="sequential"):
+    def run_weekly_exports(self, mode="sequential"):
         """Run exports for the last 7 days"""
         end_date = datetime.now()
         start_date = end_date - timedelta(days=7)
@@ -238,9 +207,9 @@ class MainScheduler:
         self.logger.info(f"Running weekly exports from {start_date_str} to {end_date_str} in {mode} mode")
         
         if mode == "parallel":
-            return await self.run_all_exports_parallel(start_date_str, end_date_str)
+            return self.run_all_exports_parallel(start_date_str, end_date_str)
         else:
-            return await self.run_all_exports_sequential(start_date_str, end_date_str)
+            return self.run_all_exports_sequential(start_date_str, end_date_str)
     
     def get_export_status(self):
         """Get status information about all available exports"""
@@ -254,29 +223,29 @@ class MainScheduler:
         return status
 
 # Convenience functions
-async def run_all_today_sequential():
+def run_all_today_sequential():
     """Run all exports for today in sequential mode"""
     scheduler = MainScheduler()
     today = datetime.now().strftime("%Y-%m-%d")
-    return await scheduler.run_all_exports_sequential(today, today)
+    return scheduler.run_all_exports_sequential(today, today)
 
-async def run_all_today_parallel():
+def run_all_today_parallel():
     """Run all exports for today in parallel mode"""
     scheduler = MainScheduler()
     today = datetime.now().strftime("%Y-%m-%d")
-    return await scheduler.run_all_exports_parallel(today, today)
+    return scheduler.run_all_exports_parallel(today, today)
 
-async def run_all_yesterday():
+def run_all_yesterday():
     """Run all exports for yesterday"""
     scheduler = MainScheduler()
-    return await scheduler.run_daily_exports()
+    return scheduler.run_daily_exports()
 
-async def run_specific_export(export_type, date=None):
+def run_specific_export(export_type, date=None):
     """Run specific export for specific date"""
     scheduler = MainScheduler()
     if not date:
         date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
-    return await scheduler.run_single_export(export_type, date, date)
+    return scheduler.run_single_export(export_type, date, date)
 
 # Main execution
 if __name__ == "__main__":
@@ -299,13 +268,13 @@ if __name__ == "__main__":
     
     if args.export:
         # Run specific export
-        asyncio.run(scheduler.run_single_export(args.export, args.date, args.date))
+        scheduler.run_single_export(args.export, args.date, args.date)
     elif args.all:
         # Run all exports
         if args.mode == 'parallel':
-            asyncio.run(scheduler.run_all_exports_parallel(args.date, args.date))
+            scheduler.run_all_exports_parallel(args.date, args.date)
         else:
-            asyncio.run(scheduler.run_all_exports_sequential(args.date, args.date))
+            scheduler.run_all_exports_sequential(args.date, args.date)
     else:
         # Default: run daily exports for yesterday
-        asyncio.run(scheduler.run_daily_exports())
+        scheduler.run_daily_exports()

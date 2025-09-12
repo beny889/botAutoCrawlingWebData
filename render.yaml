@@ -9,15 +9,16 @@ services:
       python --version
       pip install --no-cache-dir numpy==1.24.4
       pip install --no-cache-dir -r requirements.txt
-      apt-get update && apt-get install -y wget gnupg
-      python -m playwright install-deps
-      python -m playwright install
-      which chromium-browser || echo "Chromium not found in PATH"
-      ls -la /opt/render/.cache/ms-playwright/ || echo "Playwright cache not found"
+      apt-get update && apt-get install -y wget gnupg unzip
+      wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add -
+      echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list
+      apt-get update && apt-get install -y google-chrome-stable
+      which google-chrome || echo "Chrome not found in PATH"
+      google-chrome --version || echo "Chrome version check failed"
     startCommand: |
       export TZ=Asia/Jakarta
-      echo "Checking for Playwright browsers..."
-      python -c "from playwright.sync_api import sync_playwright; sync_playwright().start()" || python -m playwright install chromium
+      echo "Starting automation with Selenium WebDriver..."
+      google-chrome --version
       python main_scheduler.py --all --headless --production --single-session
     # Environment variables must be set in Render.com dashboard:
     # BACKEND_USERNAME, BACKEND_PASSWORD, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID

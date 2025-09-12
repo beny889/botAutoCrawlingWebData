@@ -1,8 +1,7 @@
 """
-Point Transaction export automation
+Point Transaction export automation using Selenium
 """
 
-import asyncio
 import logging
 from datetime import datetime, timedelta
 import sys
@@ -34,7 +33,7 @@ class PointTrxExportAutomation:
         self.sheets_manager = SheetsManager(self.export_type)
         self.logger = logging.getLogger(__name__)
     
-    async def run_export(self, start_date=None, end_date=None):
+    def run_export(self, start_date=None, end_date=None):
         """Run the complete point transaction export process"""
         try:
             # Default to yesterday if no dates provided
@@ -47,16 +46,16 @@ class PointTrxExportAutomation:
             self.logger.info(f"Starting point transaction export for date range: {start_date} to {end_date}")
             
             # Setup browser
-            await self.connector.setup_browser()
+            self.connector.setup_browser()
             
             # Login to backend
-            await self.connector.login_to_backend()
+            self.connector.login_to_backend()
             
             # Navigate to export page
-            await self.connector.navigate_to_export_page()
+            self.connector.navigate_to_export_page()
             
             # Download export file
-            downloaded_file = await self.connector.download_export_file(start_date, end_date)
+            downloaded_file = self.connector.download_export_file(start_date, end_date)
             
             # Upload to Google Sheets with smart validation
             self.sheets_manager.upload_with_smart_validation(downloaded_file)
@@ -73,28 +72,28 @@ class PointTrxExportAutomation:
         
         finally:
             # Cleanup browser resources
-            await self.connector.cleanup()
+            self.connector.cleanup()
 
 # Convenience functions
-async def run_today():
+def run_today():
     """Export point transaction data for today"""
     automation = PointTrxExportAutomation()
     today = datetime.now().strftime("%Y-%m-%d")
-    return await automation.run_export(today, today)
+    return automation.run_export(today, today)
 
-async def run_yesterday():
+def run_yesterday():
     """Export point transaction data for yesterday"""
     automation = PointTrxExportAutomation()
     yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
-    return await automation.run_export(yesterday, yesterday)
+    return automation.run_export(yesterday, yesterday)
 
-async def run_date_range(start_date, end_date):
+def run_date_range(start_date, end_date):
     """Export point transaction data for specific date range"""
     automation = PointTrxExportAutomation()
-    return await automation.run_export(start_date, end_date)
+    return automation.run_export(start_date, end_date)
 
 # Main execution
 if __name__ == "__main__":
     automation = PointTrxExportAutomation()
     # Test with yesterday's data
-    asyncio.run(automation.run_export())
+    automation.run_export()

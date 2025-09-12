@@ -2,11 +2,17 @@
 Backend connection and navigation logic shared across all exports
 """
 
-import asyncio
 import logging
+import time
 from datetime import datetime
-from playwright.async_api import async_playwright
 from pathlib import Path
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from webdriver_manager.chrome import ChromeDriverManager
 from .config import ExportConfig
 
 class BackendConnector:
@@ -18,61 +24,88 @@ class BackendConnector:
         self.browser_config = ExportConfig.BROWSER_CONFIG
         self.login_selectors = ExportConfig.LOGIN_SELECTORS
         self.logger = logging.getLogger(__name__)
+        self.driver = None
+        self.wait = None
         
         # Setup directories
         self.download_folder = Path(ExportConfig.DOWNLOADS_FOLDER)
         self.download_folder.mkdir(exist_ok=True)
         
-    async def setup_browser(self):
-        """Setup Playwright browser"""
+    def setup_browser(self):
+        """Setup Selenium WebDriver"""
         self.logger.info(f"Setting up browser for {self.export_config['name']}...")
         
-        self.playwright = await async_playwright().start()
-        
-        # Launch browser
-        self.browser = await self.playwright.chromium.launch(
-            headless=self.browser_config["headless"],
-            slow_mo=self.browser_config["slow_mo"],
-            args=[
-                "--no-sandbox",
-                "--disable-dev-shm-usage", 
-                "--disable-gpu"
-            ]
-        )
-        
-        # Create context with download path
-        self.context = await self.browser.new_context(
-            viewport={"width": 1920, "height": 1080},
-            accept_downloads=True
-        )
-        
-        # Create page
-        self.page = await self.context.new_page()
-        self.page.set_default_timeout(self.browser_config["timeout"])
-        
-        self.logger.info("Browser setup completed")
+        try:
+            # Setup Chrome options
+            chrome_options = Options()
+            
+            if self.browser_config["headless"]:
+                chrome_options.add_argument("--headless")
+            
+            chrome_options.add_argument("--no-sandbox")
+            chrome_options.add_argument("--disable-dev-shm-usage")
+            chrome_options.add_argument("--disable-gpu")
+            chrome_options.add_argument("--window-size=1920,1080")
+            chrome_options.add_argument("--disable-extensions")
+            chrome_options.add_argument("--disable-plugins")
+            
+            # Download preferences
+            prefs = {
+                "download.default_directory": str(self.download_folder.absolute()),
+                "download.prompt_for_download": False,
+                "download.directory_upgrade": True,
+                "safebrowsing.enabled": True
+            }
+            chrome_options.add_experimental_option("prefs", prefs)
+            
+            # Use ChromeDriverManager for automatic driver management
+            try:
+                service = Service(ChromeDriverManager().install())
+                self.driver = webdriver.Chrome(service=service, options=chrome_options)
+                self.logger.info("Using Chrome from ChromeDriverManager")
+            except Exception as e:
+                self.logger.error(f"Failed to setup Chrome WebDriver: {str(e)}")
+                raise
+            
+            # Setup wait
+            self.wait = WebDriverWait(self.driver, self.browser_config["timeout"] // 1000)
+            
+            # Set implicit wait
+            self.driver.implicitly_wait(10)
+            
+            self.logger.info("Browser setup completed")
+            
+        except Exception as e:
+            self.logger.error(f"Browser setup failed: {str(e)}")
+            raise
     
-    async def login_to_backend(self):
+    def login_to_backend(self):
         """Login to backend website"""
         self.logger.info("Logging in to backend...")
         
         try:
             # Navigate to login page
-            await self.page.goto(ExportConfig.BACKEND_BASE_URL)
-            await self.page.wait_for_load_state('networkidle')
+            self.driver.get(ExportConfig.BACKEND_BASE_URL)
+            time.sleep(3)  # Wait for page to load
             
             # Fill login form
-            await self.page.fill(self.login_selectors["username"], ExportConfig.USERNAME)
-            await self.page.fill(self.login_selectors["password"], ExportConfig.PASSWORD)
+            username_field = self.wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, self.login_selectors["username"])))
+            username_field.clear()
+            username_field.send_keys(ExportConfig.USERNAME)
+            
+            password_field = self.driver.find_element(By.CSS_SELECTOR, self.login_selectors["password"])
+            password_field.clear()
+            password_field.send_keys(ExportConfig.PASSWORD)
             
             # Click login button
-            await self.page.click(self.login_selectors["submit"])
+            login_button = self.driver.find_element(By.CSS_SELECTOR, self.login_selectors["submit"])
+            login_button.click()
             
             # Wait for page to load after login
-            await self.page.wait_for_load_state('networkidle', timeout=60000)
+            time.sleep(5)
             
             # Verify login success
-            current_url = self.page.url
+            current_url = self.driver.current_url
             if "login" not in current_url.lower():
                 self.logger.info("Login successful!")
                 return True
@@ -81,79 +114,116 @@ class BackendConnector:
                 
         except Exception as e:
             self.logger.error(f"Login failed: {str(e)}")
-            await self.page.screenshot(path=f"login_error_{self.export_type}.png")
+            self.driver.save_screenshot(f"login_error_{self.export_type}.png")
             raise
     
-    async def navigate_to_export_page(self):
+    def navigate_to_export_page(self):
         """Navigate to specific export page"""
         self.logger.info(f"Navigating to {self.export_config['name']} page...")
         
         try:
             # Navigate to export page
-            await self.page.goto(self.export_config["url"])
-            await self.page.wait_for_load_state('networkidle')
+            self.driver.get(self.export_config["url"])
+            time.sleep(3)  # Wait for page to load
             
             self.logger.info(f"Successfully navigated to {self.export_config['name']} page")
             
         except Exception as e:
             self.logger.error(f"Navigation failed: {str(e)}")
-            await self.page.screenshot(path=f"navigation_error_{self.export_type}.png")
+            self.driver.save_screenshot(f"navigation_error_{self.export_type}.png")
             raise
     
-    async def download_export_file(self, start_date=None, end_date=None):
+    def download_export_file(self, start_date=None, end_date=None):
         """Download export file from current page"""
         self.logger.info(f"Downloading {self.export_config['name']} file...")
         
         try:
             # Handle date filtering if required
             if self.export_config["requires_date_filter"] and start_date and end_date:
-                await self._set_date_filters(start_date, end_date)
+                self._set_date_filters(start_date, end_date)
             
             # Take screenshot before download
-            await self.page.screenshot(path=f"before_download_{self.export_type}.png")
+            self.driver.save_screenshot(f"before_download_{self.export_type}.png")
             
-            # Setup download handler and click export button
-            async with self.page.expect_download(timeout=60000) as download_info:
-                # Try common export button selectors
-                export_selectors = [
-                    'button:has-text("Export")',
-                    '.btn:has-text("Export")', 
-                    'input[type="submit"][value*="Export"]',
-                    'a:has-text("Export")'
-                ]
-                
-                export_clicked = False
-                for selector in export_selectors:
-                    try:
-                        await self.page.click(selector)
-                        export_clicked = True
-                        break
-                    except:
-                        continue
-                
-                if not export_clicked:
-                    raise Exception("Could not find export button")
+            # Get initial file count
+            initial_files = list(self.download_folder.glob("*.xlsx"))
             
-            # Get download
-            download = await download_info.value
+            # Try common export button selectors
+            export_selectors = [
+                'button:contains("Export")',
+                '.btn:contains("Export")', 
+                'input[type="submit"][value*="Export"]',
+                'a:contains("Export")',
+                'button[type="submit"]',
+                '.btn-primary'
+            ]
             
-            # Generate filename with timestamp
+            export_clicked = False
+            for selector in export_selectors:
+                try:
+                    # Convert CSS selector to XPath for contains functionality
+                    if ":contains(" in selector:
+                        text = selector.split(':contains("')[1].split('")')[0]
+                        element_type = selector.split(':contains(')[0]
+                        if element_type == 'button':
+                            xpath = f"//button[contains(text(), '{text}')]"
+                        elif element_type == '.btn':
+                            xpath = f"//*[contains(@class, 'btn') and contains(text(), '{text}')]"
+                        else:
+                            xpath = f"//{element_type}[contains(text(), '{text}')]"
+                        
+                        element = self.driver.find_element(By.XPATH, xpath)
+                    else:
+                        element = self.driver.find_element(By.CSS_SELECTOR, selector)
+                    
+                    element.click()
+                    export_clicked = True
+                    break
+                except:
+                    continue
+            
+            if not export_clicked:
+                raise Exception("Could not find export button")
+            
+            # Wait for download to complete
+            self.logger.info("Waiting for download to complete...")
+            timeout = 60  # 60 seconds timeout
+            start_time = time.time()
+            
+            while time.time() - start_time < timeout:
+                current_files = list(self.download_folder.glob("*.xlsx"))
+                if len(current_files) > len(initial_files):
+                    # New file appeared, wait a bit more for it to complete
+                    time.sleep(3)
+                    break
+                time.sleep(1)
+            else:
+                raise Exception("Download timeout - no new file appeared")
+            
+            # Find the newest file
+            all_files = list(self.download_folder.glob("*.xlsx"))
+            if not all_files:
+                raise Exception("No downloaded file found")
+            
+            newest_file = max(all_files, key=lambda x: x.stat().st_mtime)
+            
+            # Generate new filename with timestamp
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"{self.export_config['file_prefix']}_{timestamp}.xlsx"
-            file_path = self.download_folder / filename
+            new_filename = f"{self.export_config['file_prefix']}_{timestamp}.xlsx"
+            new_file_path = self.download_folder / new_filename
             
-            # Save download
-            await download.save_as(file_path)
+            # Rename file
+            newest_file.rename(new_file_path)
             
-            self.logger.info(f"File downloaded successfully: {file_path}")
-            return file_path
+            self.logger.info(f"File downloaded successfully: {new_file_path}")
+            return new_file_path
             
         except Exception as e:
             self.logger.error(f"Download failed: {str(e)}")
-            await self.page.screenshot(path=f"download_error_{self.export_type}.png")
+            self.driver.save_screenshot(f"download_error_{self.export_type}.png")
             raise
     
-    async def _set_date_filters(self, start_date, end_date):
+    def _set_date_filters(self, start_date, end_date):
         """Set date filters on export page"""
         self.logger.info(f"Setting date filters: {start_date} to {end_date}")
         
@@ -180,7 +250,7 @@ class BackendConnector:
             start_field = None
             for selector in date_selectors:
                 try:
-                    elements = await self.page.query_selector_all(selector)
+                    elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
                     if elements:
                         start_field = elements[0]  # First one is usually start date
                         break
@@ -191,7 +261,7 @@ class BackendConnector:
             end_field = None
             for selector in date_selectors:
                 try:
-                    elements = await self.page.query_selector_all(selector)
+                    elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
                     if len(elements) >= 2:
                         end_field = elements[1]  # Second one is usually end date
                         break
@@ -202,24 +272,24 @@ class BackendConnector:
                     continue
             
             if start_field:
-                await start_field.fill(start_formatted)
+                start_field.clear()
+                start_field.send_keys(start_formatted)
                 self.logger.info(f"Start date set: {start_formatted}")
             
             if end_field:
-                await end_field.fill(end_formatted) 
+                end_field.clear()
+                end_field.send_keys(end_formatted)
                 self.logger.info(f"End date set: {end_formatted}")
                 
         except Exception as e:
             self.logger.warning(f"Date filter setup failed: {str(e)}")
             # Continue anyway - some exports might not need date filters
     
-    async def cleanup(self):
+    def cleanup(self):
         """Clean up browser resources"""
         try:
-            if hasattr(self, 'browser'):
-                await self.browser.close()
-            if hasattr(self, 'playwright'):
-                await self.playwright.stop()
+            if self.driver:
+                self.driver.quit()
             self.logger.info("Browser cleanup completed")
         except Exception as e:
             self.logger.warning(f"Cleanup warning: {str(e)}")

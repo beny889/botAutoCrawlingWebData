@@ -87,7 +87,8 @@ class ExportConfig:
             "selectors": {
                 "start_date": 'input[name="start_date"]',
                 "end_date": 'input[name="end_date"]', 
-                "export_button": 'button:has-text("Export")',
+                "export_button": 'button[type="submit"]',
+                "export_button_xpath": '//button[contains(text(), "Export")]',
                 "date_format": "YYYY-MM-DD"
             }
         },
@@ -187,7 +188,8 @@ class ExportConfig:
     LOGIN_SELECTORS = {
         "username": '[name="email"]',
         "password": '[name="password"]',
-        "submit": 'button:has-text("Log In")'
+        "submit": '.btn.btn-primary.btn-block.waves-effect.waves-light',
+        "submit_xpath": '//button[contains(text(), "Log In") or @type="submit"]'
     }
     
     @classmethod

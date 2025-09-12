@@ -1,8 +1,7 @@
 """
-User Data export automation
+User Data export automation using Selenium
 """
 
-import asyncio
 import logging
 from datetime import datetime
 import sys
@@ -34,22 +33,22 @@ class UserExportAutomation:
         self.sheets_manager = SheetsManager(self.export_type)
         self.logger = logging.getLogger(__name__)
     
-    async def run_export(self):
+    def run_export(self):
         """Run the complete user data export process (no date filtering needed)"""
         try:
             self.logger.info("Starting user data export (full user list)")
             
             # Setup browser
-            await self.connector.setup_browser()
+            self.connector.setup_browser()
             
             # Login to backend
-            await self.connector.login_to_backend()
+            self.connector.login_to_backend()
             
             # Navigate to export page
-            await self.connector.navigate_to_export_page()
+            self.connector.navigate_to_export_page()
             
             # Download export file (no date filtering for user data)
-            downloaded_file = await self.connector.download_export_file()
+            downloaded_file = self.connector.download_export_file()
             
             # Upload to Google Sheets with smart validation
             self.sheets_manager.upload_with_smart_validation(downloaded_file)
@@ -66,15 +65,15 @@ class UserExportAutomation:
         
         finally:
             # Cleanup browser resources
-            await self.connector.cleanup()
+            self.connector.cleanup()
 
 # Convenience function
-async def run_user_export():
+def run_user_export():
     """Export complete user data"""
     automation = UserExportAutomation()
-    return await automation.run_export()
+    return automation.run_export()
 
 # Main execution
 if __name__ == "__main__":
     automation = UserExportAutomation()
-    asyncio.run(automation.run_export())
+    automation.run_export()

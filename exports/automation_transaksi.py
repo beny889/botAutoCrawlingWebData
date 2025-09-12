@@ -1,8 +1,7 @@
 """
-Transaction export automation - refactored with modular architecture
+Transaction export automation - refactored with modular architecture using Selenium
 """
 
-import asyncio
 import logging
 from datetime import datetime, timedelta
 import sys
@@ -34,7 +33,7 @@ class TransaksiExportAutomation:
         self.sheets_manager = SheetsManager(self.export_type)
         self.logger = logging.getLogger(__name__)
     
-    async def run_export(self, start_date=None, end_date=None):
+    def run_export(self, start_date=None, end_date=None):
         """Run the complete transaction export process"""
         try:
             # Default to yesterday if no dates provided
@@ -47,16 +46,16 @@ class TransaksiExportAutomation:
             self.logger.info(f"Starting transaction export for date range: {start_date} to {end_date}")
             
             # Setup browser
-            await self.connector.setup_browser()
+            self.connector.setup_browser()
             
             # Login to backend
-            await self.connector.login_to_backend()
+            self.connector.login_to_backend()
             
             # Navigate to export page
-            await self.connector.navigate_to_export_page()
+            self.connector.navigate_to_export_page()
             
             # Download export file
-            downloaded_file = await self.connector.download_export_file(start_date, end_date)
+            downloaded_file = self.connector.download_export_file(start_date, end_date)
             
             # Upload to Google Sheets with smart validation
             self.sheets_manager.upload_with_smart_validation(downloaded_file)
@@ -73,32 +72,32 @@ class TransaksiExportAutomation:
         
         finally:
             # Cleanup browser resources
-            await self.connector.cleanup()
+            self.connector.cleanup()
 
 # Convenience functions for different use cases
-async def run_today():
+def run_today():
     """Export transaction data for today"""
     automation = TransaksiExportAutomation()
     today = datetime.now().strftime("%Y-%m-%d")
-    return await automation.run_export(today, today)
+    return automation.run_export(today, today)
 
-async def run_yesterday():
+def run_yesterday():
     """Export transaction data for yesterday"""
     automation = TransaksiExportAutomation()
     yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
-    return await automation.run_export(yesterday, yesterday)
+    return automation.run_export(yesterday, yesterday)
 
-async def run_date_range(start_date, end_date):
+def run_date_range(start_date, end_date):
     """Export transaction data for specific date range"""
     automation = TransaksiExportAutomation()
-    return await automation.run_export(start_date, end_date)
+    return automation.run_export(start_date, end_date)
 
-async def run_last_week():
+def run_last_week():
     """Export transaction data for last 7 days"""
     automation = TransaksiExportAutomation()
     end_date = datetime.now()
     start_date = end_date - timedelta(days=7)
-    return await automation.run_export(
+    return automation.run_export(
         start_date.strftime("%Y-%m-%d"),
         end_date.strftime("%Y-%m-%d")
     )
@@ -107,4 +106,4 @@ async def run_last_week():
 if __name__ == "__main__":
     # Test with specific date
     automation = TransaksiExportAutomation()
-    asyncio.run(automation.run_export("2025-09-08", "2025-09-08"))
+    automation.run_export("2025-09-08", "2025-09-08")

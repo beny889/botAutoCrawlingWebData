@@ -115,11 +115,12 @@ Files    Auth Once    (Excel)     (PDF)      (PDF)     (PDF)      Upload x4     
   - Alternatives Considered: Node.js (rejected due to less mature automation libraries)
 
 #### Browser Automation
-- **Playwright**
-  - Rationale: Modern, fast, reliable browser automation
-  - Pros: Multi-browser support, built-in waiting, async/await
-  - Cons: Newer ecosystem compared to Selenium
-  - Alternatives Considered: Selenium (rejected due to performance), Puppeteer (rejected due to Python support)
+- **Selenium WebDriver + Chrome** (MIGRATED from Playwright)
+  - Rationale: Superior cloud deployment reliability and cross-platform stability
+  - Pros: Industry standard, excellent cloud support, automatic driver management
+  - Cons: Synchronous execution model (but more stable in production)
+  - Migration Reason: Playwright had persistent installation issues on Render.com cloud platform
+  - Previous: Playwright (migrated away due to cloud deployment failures)
 
 #### Data Processing
 - **Pandas**
@@ -218,18 +219,20 @@ VS Code (https://code.visualstudio.com/)
 PyCharm Community (https://jetbrains.com/pycharm/)
 Sublime Text (https://sublimetext.com/)
 
-# Browser (for debugging)
-Chrome/Chromium (auto-installed via Playwright)
+# Browser (for automation)
+Google Chrome (auto-installed via apt-get on cloud, local installation required for development)
 ```
 
 #### Development Dependencies
 ```bash
-# Core Automation Stack
-playwright==1.40.0
-pandas==2.1.4
-gspread==5.12.4
-google-auth==2.25.2
+# Core Automation Stack (UPDATED - Selenium WebDriver)
+selenium==4.15.0
+webdriver-manager==4.0.1
+pandas==2.0.3
+gspread==5.11.3
+google-auth==2.23.4
 openpyxl==3.1.2
+requests==2.31.0
 
 # Development Tools
 pytest==7.4.3
