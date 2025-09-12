@@ -12,8 +12,10 @@ class ExportConfig:
     PASSWORD = os.getenv('BACKEND_PASSWORD')
     
     # Telegram notification credentials - SECURE: Environment variables only
-    TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
-    TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
+    # Set DISABLE_NOTIFICATIONS=true to disable Telegram notifications during testing
+    DISABLE_NOTIFICATIONS = os.getenv('DISABLE_NOTIFICATIONS', 'false').lower() == 'true'
+    TELEGRAM_TOKEN = None if DISABLE_NOTIFICATIONS else os.getenv('TELEGRAM_TOKEN')
+    TELEGRAM_CHAT_ID = None if DISABLE_NOTIFICATIONS else os.getenv('TELEGRAM_CHAT_ID')
     
     # Google Service Account Configuration
     @classmethod
@@ -52,10 +54,13 @@ class ExportConfig:
             missing_vars.append('BACKEND_USERNAME')
         if not cls.PASSWORD:
             missing_vars.append('BACKEND_PASSWORD')
-        if not cls.TELEGRAM_TOKEN:
-            missing_vars.append('TELEGRAM_TOKEN')
-        if not cls.TELEGRAM_CHAT_ID:
-            missing_vars.append('TELEGRAM_CHAT_ID')
+        
+        # Only require Telegram credentials if notifications are enabled
+        if not cls.DISABLE_NOTIFICATIONS:
+            if not cls.TELEGRAM_TOKEN:
+                missing_vars.append('TELEGRAM_TOKEN')
+            if not cls.TELEGRAM_CHAT_ID:
+                missing_vars.append('TELEGRAM_CHAT_ID')
         
         # Validate Google service account
         try:
