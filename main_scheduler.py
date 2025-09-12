@@ -28,8 +28,8 @@ from exports.automation_point_trx import PointTrxExportAutomation
 from exports.automation_user import UserExportAutomation
 from exports.automation_pembayaran_koin import PembayaranKoinExportAutomation
 
-# Import single session automation and Telegram notifications
-from single_session_automation import SingleSessionAutomation
+# Import Telegram notifications and configuration
+# Note: SingleSessionAutomation temporarily disabled during Selenium migration
 from shared.telegram_notifier import TelegramNotifier
 from shared.config import ExportConfig
 
@@ -97,32 +97,12 @@ class MainScheduler:
         mode = "single session" if self.use_single_session else "individual sessions"
         self.telegram.send_system_start(mode)
         
+        # Temporarily use individual sessions mode during Selenium migration
+        # Single session mode will be re-enabled after SingleSessionAutomation is updated for Selenium
         if self.use_single_session:
-            self.logger.info("Starting all exports in SINGLE SESSION sequential mode...")
-            
-            # Use single session automation with configuration
-            # Get configuration from command line arguments if available
-            import sys
-            headless = '--headless' in sys.argv
-            debug = '--debug' in sys.argv
-            production = '--production' in sys.argv
-            
-            single_session = SingleSessionAutomation(headless=headless, debug=debug, production=production)
-            result = single_session.run_all_exports_sequential(start_date, end_date)
-            
-            if result["success"]:
-                self.logger.info("Single session automation completed successfully!")
-                # Send success summary
-                total_time = (datetime.now() - start_time).total_seconds()
-                self.telegram.send_daily_summary(result["results"], total_time)
-                return result["results"]
-            else:
-                self.logger.error(f"Single session automation failed: {result.get('error', 'Unknown error')}")
-                # Send error notification
-                self.telegram.send_system_error(result.get('error', 'Unknown error'), "single_session")
-                # Fallback to individual exports
-                self.logger.info("Falling back to individual export mode...")
-                return self._run_individual_exports(start_date, end_date, start_time)
+            self.logger.info("Single session mode temporarily disabled - using individual sessions")
+            self.logger.info("Running individual exports with Selenium WebDriver...")
+            return self._run_individual_exports(start_date, end_date, start_time)
         else:
             return self._run_individual_exports(start_date, end_date, start_time)
     
@@ -174,10 +154,6 @@ class MainScheduler:
     
     def run_all_exports_parallel(self, start_date=None, end_date=None):
         """Run all exports simultaneously (parallel) - Note: Not truly parallel with Selenium"""
-        if self.use_single_session:
-            self.logger.warning("Single session mode doesn't support parallel execution - running sequential instead")
-            return self.run_all_exports_sequential(start_date, end_date)
-        
         self.logger.info("Starting all exports in sequential mode (Selenium limitation)...")
         # Note: Selenium doesn't support true parallel execution like asyncio
         # Running sequentially instead
