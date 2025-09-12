@@ -9,8 +9,11 @@ services:
       python --version
       pip install --no-cache-dir numpy==1.24.4
       pip install --no-cache-dir -r requirements.txt
+      apt-get update && apt-get install -y wget gnupg
       python -m playwright install-deps
-      python -m playwright install chromium
+      python -m playwright install
+      which chromium-browser || echo "Chromium not found in PATH"
+      ls -la /opt/render/.cache/ms-playwright/ || echo "Playwright cache not found"
     startCommand: |
       export TZ=Asia/Jakarta
       python main_scheduler.py --all --headless --production --single-session
