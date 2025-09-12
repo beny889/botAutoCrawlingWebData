@@ -7,7 +7,8 @@ services:
     schedule: "0 1,11 * * *"  # 8 AM & 6 PM WIB (1 AM & 11 AM UTC)
     buildCommand: |
       python --version
-      pip install -r requirements.txt
+      pip install --no-cache-dir numpy==1.24.4
+      pip install --no-cache-dir -r requirements.txt
       playwright install chromium
     startCommand: |
       export TZ=Asia/Jakarta
