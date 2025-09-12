@@ -6,7 +6,7 @@ services:
     schedule: "0 1,11 * * *"  # 8 AM & 6 PM WIB (1 AM & 11 AM UTC)
     buildCommand: |
       pip install --upgrade pip
-      pip install -r requirements.txt
+      pip install -r requirements.txt --no-cache-dir
       playwright install chromium --with-deps
     startCommand: |
       export TZ=Asia/Jakarta
