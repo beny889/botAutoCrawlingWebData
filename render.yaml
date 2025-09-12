@@ -3,10 +3,13 @@ services:
     name: automation-bot-2x-daily
     env: python
     plan: starter
+    pythonVersion: "3.11.9"
     schedule: "0 1,11 * * *"  # 8 AM & 6 PM WIB (1 AM & 11 AM UTC)
     buildCommand: |
-      pip install --upgrade pip setuptools wheel
-      pip install -r requirements.txt
+      python --version
+      pip install --upgrade pip==24.2
+      pip install setuptools==69.5.1 wheel==0.43.0
+      pip install --no-cache-dir -r requirements.txt
       playwright install chromium
     startCommand: |
       export TZ=Asia/Jakarta
