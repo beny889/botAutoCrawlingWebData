@@ -11,13 +11,20 @@ services:
       pip install --no-cache-dir -r requirements.txt
       apt-get update
       apt-get install -y wget unzip curl xvfb
-      wget -q -O /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-      apt-get install -y /tmp/chrome.deb
+      # Try multiple browser installation methods
+      # Method 1: Install Chromium (more reliable on Linux)
+      apt-get install -y chromium-browser
+      # Method 2: Try Chrome installation as fallback
+      wget -q -O /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb || echo "Chrome download failed"
+      apt-get install -y /tmp/chrome.deb || echo "Chrome deb install failed"
       rm -f /tmp/chrome.deb
       apt-get install -yf
-      which google-chrome-stable || echo "Chrome not found after installation"
-      google-chrome-stable --version || echo "Chrome version check failed"
-      google-chrome-stable --headless --no-sandbox --disable-gpu --dump-dom https://www.google.com > /dev/null && echo "Chrome headless test successful" || echo "Chrome headless test failed"
+      # Check which browsers are available
+      echo "=== Browser Check ==="
+      which chromium-browser && echo "Chromium found at: $(which chromium-browser)" && chromium-browser --version
+      which google-chrome-stable && echo "Chrome found at: $(which google-chrome-stable)" && google-chrome-stable --version
+      which google-chrome && echo "Chrome found at: $(which google-chrome)" && google-chrome --version
+      echo "=== End Browser Check ==="
     startCommand: |
       export TZ=Asia/Jakarta
       echo "Starting automation with Selenium WebDriver..."
