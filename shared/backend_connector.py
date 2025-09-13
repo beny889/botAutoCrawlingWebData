@@ -228,9 +228,13 @@ class BackendConnector:
             if config_selector:
                 export_selectors.append(config_selector)
             
-            # Add specific selectors found in logs for different export types
+            # Add specific selectors found in logs for different export types  
             export_selectors.extend([
+                '//button[text()="Export"]',  # Direct XPath for button with exact text "Export"
+                '//button[contains(text(), "Export")]',  # XPath for button containing "Export"
                 'button.btn.btn-success.m3.expot-pdf',  # For pembayaran_koin, user, point_trx
+                'button.expot-pdf',  # Alternative selector for expot-pdf class
+                'button.btn.btn-success',  # More general btn-success selector
                 'button.btn.btn-primary',  # For transaksi export
                 'button:contains("Export")',
                 'button[type="submit"]',
@@ -247,8 +251,12 @@ class BackendConnector:
                 try:
                     self.logger.info(f"Trying export button selector: {selector}")
                     
-                    # Convert CSS selector to XPath for contains functionality
-                    if ":contains(" in selector:
+                    # Determine selector type and find element accordingly
+                    if selector.startswith('//'):
+                        # Direct XPath selector
+                        element = self.driver.find_element(By.XPATH, selector)
+                    elif ":contains(" in selector:
+                        # Convert CSS selector to XPath for contains functionality
                         text = selector.split(':contains("')[1].split('")')[0]
                         element_type = selector.split(':contains(')[0]
                         if element_type == 'button':
@@ -260,6 +268,7 @@ class BackendConnector:
                         
                         element = self.driver.find_element(By.XPATH, xpath)
                     else:
+                        # Standard CSS selector
                         element = self.driver.find_element(By.CSS_SELECTOR, selector)
                     
                     # Log button details before clicking
