@@ -96,12 +96,19 @@ services:
       echo "Date: 2025-09-11 (confirmed data available)"
       echo "Mode: Production headless with enhanced validation"
       
-      # Execute with comprehensive error handling
+      # Execute single export with comprehensive error handling
+      echo "Executing: python main_scheduler.py --export pembayaran_koin --headless --production --date 2025-09-11"
       if python main_scheduler.py --export pembayaran_koin --headless --production --date 2025-09-11; then
-        echo "✅ EXPORT COMPLETED SUCCESSFULLY"
-        exit 0
+        echo "✅ SINGLE EXPORT COMPLETED SUCCESSFULLY"
+        echo "Staying alive to prevent restart loops..."
+        
+        # Keep service alive after successful execution
+        while true; do
+          echo "Service completed successfully. Sleeping for 1 hour..."
+          sleep 3600
+        done
       else
-        echo "❌ EXPORT FAILED - Check logs for details"
+        echo "❌ SINGLE EXPORT FAILED - Check logs for details"
         exit 1
       fi
     # Environment variables must be set in Render.com dashboard:
