@@ -247,6 +247,7 @@ if __name__ == "__main__":
         scheduler.run_single_export(args.export, args.date, args.date)
     elif args.all:
         # Run all exports
+        print(f"DEBUG: Running all exports with date: {args.date}")
         if args.mode == 'parallel':
             scheduler.run_all_exports_parallel(args.date, args.date)
         else:
