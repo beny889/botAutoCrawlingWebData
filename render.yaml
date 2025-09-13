@@ -78,9 +78,10 @@ services:
         echo "✗ No browser found - automation will fail"
       fi
       
-      # Run single automation execution (cron handles scheduling)
-      echo "Starting single automation execution with arguments: --all --headless --production --single-session --date 2025-09-11"
-      python main_scheduler.py --all --headless --production --single-session --date 2025-09-11
+      # Run MINIMAL automation execution for testing (coin payment only)
+      echo "Starting MINIMAL automation execution - coin payment only for fast testing"
+      echo "Arguments: --export pembayaran_koin --headless --production --date 2025-09-11"
+      python main_scheduler.py --export pembayaran_koin --headless --production --date 2025-09-11
     # Environment variables must be set in Render.com dashboard:
     # BACKEND_USERNAME, BACKEND_PASSWORD, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID
     envVars:
