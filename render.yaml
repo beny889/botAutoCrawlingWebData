@@ -80,7 +80,7 @@ services:
       
       # Run single automation execution (cron handles scheduling)
       echo "Starting single automation execution..."
-      python main_scheduler.py --all --headless --production --single-session
+      python main_scheduler.py --all --headless --production --single-session --date 2025-09-11
     # Environment variables must be set in Render.com dashboard:
     # BACKEND_USERNAME, BACKEND_PASSWORD, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID
     envVars:
