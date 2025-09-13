@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: automation-bot-single-export-v2
+    name: automation-bot-final-fixed
     env: python
     plan: free
     pythonVersion: "3.11.9"
