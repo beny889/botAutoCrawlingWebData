@@ -440,15 +440,13 @@ class BackendConnector:
                     self.logger.warning(f"Could not find end date field with selector {end_date_selector}: {str(e)}")
             
             if start_field:
-                start_field.clear()
-                start_field.send_keys(start_formatted)
+                self._set_date_field_value(start_field, start_formatted, "start")
                 self.logger.info(f"Start date set using selector '{start_date_selector}': {start_formatted}")
             else:
                 self.logger.error(f"Start date field not found! Selector: {start_date_selector}")
             
             if end_field:
-                end_field.clear()
-                end_field.send_keys(end_formatted)
+                self._set_date_field_value(end_field, end_formatted, "end")
                 self.logger.info(f"End date set using selector '{end_date_selector}': {end_formatted}")
             else:
                 self.logger.error(f"End date field not found! Selector: {end_date_selector}")
@@ -456,6 +454,37 @@ class BackendConnector:
         except Exception as e:
             self.logger.warning(f"Date filter setup failed: {str(e)}")
             # Continue anyway - some exports might not need date filters
+    
+    def _set_date_field_value(self, field_element, date_value, field_type):
+        """Set date field value using multiple methods to ensure proper triggering"""
+        try:
+            # Method 1: Standard clear + send_keys
+            field_element.clear()
+            field_element.send_keys(date_value)
+            
+            # Method 2: JavaScript value setting + trigger events
+            self.driver.execute_script("""
+                arguments[0].value = arguments[1];
+                arguments[0].dispatchEvent(new Event('input', { bubbles: true }));
+                arguments[0].dispatchEvent(new Event('change', { bubbles: true }));
+                arguments[0].dispatchEvent(new Event('blur', { bubbles: true }));
+            """, field_element, date_value)
+            
+            # Give time for any JavaScript validation
+            time.sleep(0.5)
+            
+            # Verify the value was set correctly
+            actual_value = field_element.get_attribute('value')
+            if actual_value != date_value:
+                self.logger.warning(f"Date field {field_type} value mismatch: expected '{date_value}', got '{actual_value}'")
+                
+                # Method 3: Force setting with JavaScript if mismatch
+                self.driver.execute_script("arguments[0].value = arguments[1];", field_element, date_value)
+                
+            self.logger.info(f"Date field {field_type} set to: {actual_value}")
+            
+        except Exception as e:
+            self.logger.error(f"Failed to set {field_type} date field: {str(e)}")
     
     def cleanup(self):
         """Clean up browser resources"""
