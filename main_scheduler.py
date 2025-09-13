@@ -67,15 +67,17 @@ class MainScheduler:
         if export_type not in self.exports:
             raise ValueError(f"Unknown export type: {export_type}")
         
-        self.logger.info(f"Starting {export_type} export...")
+        self.logger.info(f"Starting {export_type} export with dates: {start_date} to {end_date}")
         
         try:
             automation = self.exports[export_type]()
             
             # Handle user export (no date parameters)
             if export_type == "user":
+                self.logger.info(f"User export: running without date parameters")
                 result = automation.run_export()
             else:
+                self.logger.info(f"{export_type} export: running with start_date={start_date}, end_date={end_date}")
                 result = automation.run_export(start_date, end_date)
             
             if result:
@@ -247,7 +249,7 @@ if __name__ == "__main__":
         scheduler.run_single_export(args.export, args.date, args.date)
     elif args.all:
         # Run all exports
-        print(f"DEBUG: Running all exports with date: {args.date}")
+        logging.info(f"Running all exports with date: {args.date}")
         if args.mode == 'parallel':
             scheduler.run_all_exports_parallel(args.date, args.date)
         else:

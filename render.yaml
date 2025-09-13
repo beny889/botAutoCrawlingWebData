@@ -59,7 +59,7 @@ services:
       
       echo "=== Browser Installation Complete ==="
     schedule: "0 1,11 * * *"  # 8 AM & 6 PM WIB (1:00 & 11:00 UTC)
-    startCommand: |
+    command: |
       # Set up environment
       export TZ=Asia/Jakarta
       export DISPLAY=:99
