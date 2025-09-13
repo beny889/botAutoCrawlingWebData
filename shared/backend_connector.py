@@ -279,17 +279,41 @@ class BackendConnector:
                     self.driver.execute_script("arguments[0].scrollIntoView();", element)
                     time.sleep(1)
                     
-                    element.click()
-                    export_clicked = True
-                    clicked_selector = selector
-                    self.logger.info(f"Successfully clicked export button: {selector}")
+                    # Check if element is actually clickable
+                    if not element.is_enabled():
+                        self.logger.warning(f"Element with selector {selector} is not enabled/clickable")
+                        continue
                     
-                    # Give the system time to process the export request
-                    time.sleep(3)
-                    break
+                    # Try clicking the element
+                    try:
+                        element.click()
+                        export_clicked = True
+                        clicked_selector = selector
+                        self.logger.info(f"Successfully clicked export button: {selector}")
+                        
+                        # Give the system time to process the export request
+                        time.sleep(3)
+                        break
+                        
+                    except Exception as click_error:
+                        self.logger.warning(f"Click failed for selector {selector}: {str(click_error)}")
+                        # Try JavaScript click as fallback
+                        try:
+                            self.driver.execute_script("arguments[0].click();", element)
+                            export_clicked = True
+                            clicked_selector = selector
+                            self.logger.info(f"Successfully clicked export button using JavaScript: {selector}")
+                            
+                            # Give the system time to process the export request
+                            time.sleep(3)
+                            break
+                            
+                        except Exception as js_click_error:
+                            self.logger.error(f"Both regular and JavaScript click failed for {selector}: {str(js_click_error)}")
+                            continue
                     
                 except Exception as e:
-                    self.logger.debug(f"Selector {selector} failed: {str(e)}")
+                    self.logger.warning(f"Selector {selector} failed during element finding: {str(e)}")
                     continue
             
             if not export_clicked:
