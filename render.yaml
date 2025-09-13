@@ -90,3 +90,5 @@ services:
         value: "Asia/Jakarta"
       - key: PYTHONUNBUFFERED
         value: "1"
+      - key: DISABLE_NOTIFICATIONS
+        value: "true"
