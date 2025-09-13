@@ -13,7 +13,7 @@ class ExportConfig:
     
     # Telegram notification credentials - SECURE: Environment variables only
     # Set DISABLE_NOTIFICATIONS=true to disable Telegram notifications during testing
-    DISABLE_NOTIFICATIONS = os.getenv('DISABLE_NOTIFICATIONS', 'false').lower() == 'true'
+    DISABLE_NOTIFICATIONS = True  # Force disabled during development/testing
     TELEGRAM_TOKEN = None if DISABLE_NOTIFICATIONS else os.getenv('TELEGRAM_TOKEN')
     TELEGRAM_CHAT_ID = None if DISABLE_NOTIFICATIONS else os.getenv('TELEGRAM_CHAT_ID')
     
