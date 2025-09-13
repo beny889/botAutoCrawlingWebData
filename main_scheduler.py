@@ -242,6 +242,14 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
+    # Debug: Log all parsed arguments
+    logging.info(f"Parsed arguments: export={args.export}, date={args.date}, mode={args.mode}, all={args.all}")
+    
+    # Default date fallback if none provided
+    if args.date is None:
+        args.date = "2025-09-11"  # Use date with known data
+        logging.info(f"No date provided, using default: {args.date}")
+    
     scheduler = MainScheduler(use_single_session=args.single_session)
     
     if args.export:
