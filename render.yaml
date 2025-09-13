@@ -1,5 +1,5 @@
 services:
-  - type: web
+  - type: cron
     name: automation-bot-scheduler
     env: python
     plan: starter
@@ -58,6 +58,7 @@ services:
       test -f /usr/bin/chromium-browser && echo "✓ /usr/bin/chromium-browser exists" || echo "✗ /usr/bin/chromium-browser missing"
       
       echo "=== Browser Installation Complete ==="
+    schedule: "0 1,11 * * *"  # 8 AM & 6 PM WIB (1:00 & 11:00 UTC)
     startCommand: |
       # Set up environment
       export TZ=Asia/Jakarta
@@ -77,38 +78,9 @@ services:
         echo "✗ No browser found - automation will fail"
       fi
       
-      # Start the scheduler in continuous mode
-      echo "Starting continuous automation scheduler..."
-      python -c "
-import time
-import subprocess
-import schedule
-from datetime import datetime
-
-def run_automation():
-    print(f'[{datetime.now()}] Starting scheduled automation run...')
-    try:
-        result = subprocess.run(['python', 'main_scheduler.py', '--all', '--headless', '--production', '--single-session'], 
-                              capture_output=True, text=True, timeout=600)
-        print(f'Automation completed with return code: {result.returncode}')
-        if result.stdout:
-            print('STDOUT:', result.stdout[-1000:])  # Last 1000 chars
-        if result.stderr:
-            print('STDERR:', result.stderr[-1000:])  # Last 1000 chars
-    except Exception as e:
-        print(f'Automation failed with error: {e}')
-
-# Schedule automation runs
-schedule.every().day.at('01:00').do(run_automation)  # 8 AM WIB
-schedule.every().day.at('11:00').do(run_automation)  # 6 PM WIB
-
-print('Automation scheduler started - waiting for scheduled times...')
-print('Schedule: 01:00 UTC (8 AM WIB) and 11:00 UTC (6 PM WIB)')
-
-while True:
-    schedule.run_pending()
-    time.sleep(60)  # Check every minute
-"
+      # Run single automation execution (cron handles scheduling)
+      echo "Starting single automation execution..."
+      python main_scheduler.py --all --headless --production --single-session
     # Environment variables must be set in Render.com dashboard:
     # BACKEND_USERNAME, BACKEND_PASSWORD, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID
     envVars:
