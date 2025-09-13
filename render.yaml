@@ -1,6 +1,6 @@
 services:
-  - type: cron
-    name: automation-bot-scheduler
+  - type: web
+    name: automation-bot-single-export-v2
     env: python
     plan: free
     pythonVersion: "3.11.9"
@@ -58,9 +58,8 @@ services:
       test -f /usr/bin/chromium-browser && echo "✓ /usr/bin/chromium-browser exists" || echo "✗ /usr/bin/chromium-browser missing"
       
       echo "=== Browser Installation Complete ==="
-    schedule: "0 1,11 * * *"  # 8 AM & 6 PM WIB (1:00 & 11:00 UTC)
-    command: |
-      # Set up environment
+    startCommand: |
+      # Set up environment for stable deployment
       export TZ=Asia/Jakarta
       export DISPLAY=:99
       export PYTHONUNBUFFERED=1
@@ -68,20 +67,43 @@ services:
       # Start virtual display for headless Chrome
       Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
       
-      # Verify browser availability at runtime
-      echo "=== Runtime Browser Verification ==="
-      if command -v google-chrome-stable >/dev/null 2>&1; then
-        echo "✓ Google Chrome available: $(google-chrome-stable --version 2>/dev/null || echo 'Version check failed')"
-      elif command -v chromium-browser >/dev/null 2>&1; then
-        echo "✓ Chromium available: $(chromium-browser --version 2>/dev/null || echo 'Version check failed')"
-      else
-        echo "✗ No browser found - automation will fail"
+      # Enhanced browser verification
+      echo "=== ENHANCED BROWSER VERIFICATION ==="
+      browser_found=false
+      
+      for browser in google-chrome-stable google-chrome chromium-browser chromium; do
+        if command -v "$browser" >/dev/null 2>&1; then
+          echo "✓ BROWSER FOUND: $browser"
+          if "$browser" --version 2>/dev/null; then
+            echo "✓ BROWSER WORKING: Version check successful"
+            browser_found=true
+            break
+          else
+            echo "⚠ BROWSER ISSUE: Version check failed for $browser"
+          fi
+        fi
+      done
+      
+      if [ "$browser_found" = false ]; then
+        echo "❌ CRITICAL: No working browser found - automation will fail"
+        exit 1
       fi
       
-      # Run MINIMAL automation execution for testing (coin payment only)
-      echo "Starting MINIMAL automation execution - coin payment only for fast testing"
-      echo "Arguments: --export pembayaran_koin --headless --production --date 2025-09-11"
-      python main_scheduler.py --export pembayaran_koin --headless --production --date 2025-09-11
+      # OPTIMIZED SINGLE EXPORT EXECUTION
+      echo "=== OPTIMIZED SINGLE EXPORT EXECUTION ==="
+      echo "Service: automation-bot-single-export-v2"
+      echo "Target: pembayaran_koin export only"
+      echo "Date: 2025-09-11 (confirmed data available)"
+      echo "Mode: Production headless with enhanced validation"
+      
+      # Execute with comprehensive error handling
+      if python main_scheduler.py --export pembayaran_koin --headless --production --date 2025-09-11; then
+        echo "✅ EXPORT COMPLETED SUCCESSFULLY"
+        exit 0
+      else
+        echo "❌ EXPORT FAILED - Check logs for details"
+        exit 1
+      fi
     # Environment variables must be set in Render.com dashboard:
     # BACKEND_USERNAME, BACKEND_PASSWORD, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID
     envVars:

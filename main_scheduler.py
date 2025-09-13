@@ -242,19 +242,44 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     
-    # Debug: Log all parsed arguments
+    # ENHANCED DEBUG: Log all parsed arguments with validation
+    logging.info("="*50)
+    logging.info("MAIN SCHEDULER ARGUMENT VALIDATION")
     logging.info(f"Parsed arguments: export={args.export}, date={args.date}, mode={args.mode}, all={args.all}")
+    logging.info(f"Single session: {args.single_session}")
+    logging.info(f"Headless: {args.headless}, Debug: {args.debug}, Production: {args.production}")
+    
+    # CRITICAL: Validate single export execution
+    if args.export and args.all:
+        logging.error("CONFLICT: Both --export and --all specified. Using --export only.")
+        args.all = False
+    
+    if args.export:
+        logging.info(f"SINGLE EXPORT MODE: Will run ONLY {args.export} export")
+        if args.export not in ["transaksi", "point_trx", "user", "pembayaran_koin"]:
+            logging.error(f"Invalid export type: {args.export}")
+            sys.exit(1)
+    elif args.all:
+        logging.info("ALL EXPORTS MODE: Will run all 4 exports")
+    else:
+        logging.info("DEFAULT MODE: Will run daily exports (yesterday)")
     
     # Default date fallback if none provided
     if args.date is None:
         args.date = "2025-09-11"  # Use date with known data
         logging.info(f"No date provided, using default: {args.date}")
     
+    logging.info("="*50)
+    
     scheduler = MainScheduler(use_single_session=args.single_session)
     
     if args.export:
-        # Run specific export
-        scheduler.run_single_export(args.export, args.date, args.date)
+        # SINGLE EXPORT EXECUTION - Enhanced logging
+        logging.info(f"EXECUTING SINGLE EXPORT: {args.export}")
+        logging.info(f"Date range: {args.date} to {args.date}")
+        result = scheduler.run_single_export(args.export, args.date, args.date)
+        logging.info(f"SINGLE EXPORT RESULT: {'SUCCESS' if result else 'FAILED'}")
+        sys.exit(0 if result else 1)
     elif args.all:
         # Run all exports
         logging.info(f"Running all exports with date: {args.date}")

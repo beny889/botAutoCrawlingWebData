@@ -206,13 +206,16 @@ class BackendConnector:
             raise
     
     def download_export_file(self, start_date=None, end_date=None):
-        """Download export file from current page"""
-        self.logger.info(f"Downloading {self.export_config['name']} file...")
+        """Download export file from current page with enhanced validation"""
+        self.logger.info(f"ENHANCED DOWNLOAD: {self.export_config['name']} for dates {start_date} to {end_date}")
         
         try:
+            # Clear download folder first to avoid confusion
+            self._clear_download_folder()
+            
             # Handle date filtering if required
             if self.export_config["requires_date_filter"] and start_date and end_date:
-                self._set_date_filters(start_date, end_date)
+                self._set_date_filters_enhanced(start_date, end_date)
             
             # Take screenshot before download
             self.driver.save_screenshot(f"before_download_{self.export_type}.png")
@@ -333,57 +336,32 @@ class BackendConnector:
             
             self.logger.info(f"Export initiated using selector: {clicked_selector}")
             
-            # Wait for download to complete with enhanced detection
-            self.logger.info("Waiting for download to complete...")
-            timeout = 60  # 60 seconds timeout
-            start_time = time.time()
+            # Enhanced download detection with longer wait and better validation
+            downloaded_file = self._wait_for_download_completion_enhanced(initial_files)
             
-            downloaded_file = None
-            while time.time() - start_time < timeout:
-                current_files = list(self.download_folder.glob("*.xlsx"))
-                
-                # Check for new files
-                new_files = [f for f in current_files if f not in initial_files]
-                if new_files:
-                    # Found new file, check if it's complete and not empty
-                    newest_file = max(new_files, key=lambda x: x.stat().st_mtime)
-                    file_size = newest_file.stat().st_size
-                    
-                    self.logger.info(f"Found new file: {newest_file.name}, size: {file_size} bytes")
-                    
-                    # Wait for file to stabilize (stop growing)
-                    stable_count = 0
-                    last_size = 0
-                    
-                    for _ in range(10):  # Check for 10 seconds
-                        time.sleep(1)
-                        current_size = newest_file.stat().st_size
-                        
-                        if current_size == last_size and current_size > 0:
-                            stable_count += 1
-                            if stable_count >= 3:  # File stable for 3 seconds
-                                downloaded_file = newest_file
-                                break
-                        else:
-                            stable_count = 0
-                        
-                        last_size = current_size
-                        self.logger.info(f"File size: {current_size} bytes, stable count: {stable_count}")
-                    
-                    if downloaded_file:
-                        break
-                
-                time.sleep(1)
-            else:
-                raise Exception("Download timeout - no valid file appeared within timeout")
-            
-            if not downloaded_file:
-                raise Exception("Download failed - no valid file found")
-            
-            # Verify file is not empty
+            # Comprehensive file validation
             file_size = downloaded_file.stat().st_size
+            self.logger.info(f"DOWNLOAD VALIDATION: File size: {file_size} bytes")
+            
             if file_size == 0:
-                raise Exception(f"Downloaded file is empty! File: {downloaded_file.name}")
+                # Take screenshot for debugging empty files
+                self.driver.save_screenshot(f"empty_file_debug_{self.export_type}_{start_date}.png")
+                raise Exception(f"CRITICAL: Downloaded file is EMPTY! File: {downloaded_file.name}, Export: {self.export_type}")
+            
+            # Additional validation for suspiciously small files
+            if file_size < 1000:  # Less than 1KB is suspicious for Excel files
+                self.logger.warning(f"WARNING: Very small file size ({file_size} bytes) - may contain headers only")
+                
+                # Try to read the file to check content
+                try:
+                    import pandas as pd
+                    test_df = pd.read_excel(downloaded_file)
+                    if len(test_df) == 0:
+                        self.logger.warning(f"File contains headers but no data rows - this may be expected for date {start_date}")
+                    else:
+                        self.logger.info(f"File validation: {len(test_df)} data rows found")
+                except Exception as read_error:
+                    self.logger.error(f"Could not validate file content: {read_error}")
             
             self.logger.info(f"Download completed - File size: {file_size} bytes")
             
@@ -401,6 +379,220 @@ class BackendConnector:
         except Exception as e:
             self.logger.error(f"Download failed: {str(e)}")
             self.driver.save_screenshot(f"download_error_{self.export_type}.png")
+            raise
+    
+    def _clear_download_folder(self):
+        """Clear download folder of any existing Excel files"""
+        try:
+            for file_path in self.download_folder.glob("*.xlsx"):
+                file_path.unlink()
+                self.logger.info(f"Cleared existing file: {file_path.name}")
+        except Exception as e:
+            self.logger.warning(f"Could not clear download folder: {str(e)}")
+    
+    def _validate_and_format_date(self, date_input):
+        """Validate and format date input to YYYY-MM-DD"""
+        if isinstance(date_input, str):
+            # Assume already in YYYY-MM-DD format, validate it
+            try:
+                from datetime import datetime
+                datetime.strptime(date_input, "%Y-%m-%d")
+                return date_input
+            except ValueError:
+                self.logger.error(f"Invalid date format: {date_input}. Expected YYYY-MM-DD")
+                raise
+        else:
+            return date_input.strftime("%Y-%m-%d")
+    
+    def _find_date_field_enhanced(self, selector, field_type):
+        """Enhanced date field finding with multiple strategies"""
+        try:
+            field = self.driver.find_element(By.CSS_SELECTOR, selector)
+            self.logger.info(f"Found {field_type} date field using selector: {selector}")
+            return field
+        except Exception as e:
+            self.logger.error(f"Could not find {field_type} date field with selector {selector}: {str(e)}")
+            
+            # List all input fields for debugging
+            all_inputs = self.driver.find_elements(By.TAG_NAME, "input")
+            self.logger.info(f"Found {len(all_inputs)} input fields on page:")
+            for i, inp in enumerate(all_inputs):
+                inp_type = inp.get_attribute("type") or "No type"
+                inp_name = inp.get_attribute("name") or "No name"
+                inp_id = inp.get_attribute("id") or "No id"
+                inp_class = inp.get_attribute("class") or "No class"
+                self.logger.info(f"Input {i}: type='{inp_type}', name='{inp_name}', id='{inp_id}', class='{inp_class}'")
+            
+            return None
+    
+    def _set_date_field_value_enhanced(self, field_element, date_value, field_type):
+        """Enhanced date field value setting with comprehensive validation"""
+        try:
+            self.logger.info(f"Setting {field_type} date field to: {date_value}")
+            
+            # Get current value before setting
+            current_value = field_element.get_attribute('value')
+            self.logger.info(f"Current {field_type} field value: '{current_value}'")
+            
+            # Method 1: Clear and send keys
+            field_element.clear()
+            time.sleep(0.2)
+            field_element.send_keys(date_value)
+            time.sleep(0.2)
+            
+            # Method 2: JavaScript value setting with comprehensive events
+            self.driver.execute_script("""
+                console.log('Setting date field value:', arguments[1]);
+                arguments[0].value = arguments[1];
+                
+                // Trigger comprehensive events
+                arguments[0].dispatchEvent(new Event('input', { bubbles: true }));
+                arguments[0].dispatchEvent(new Event('change', { bubbles: true }));
+                arguments[0].dispatchEvent(new Event('blur', { bubbles: true }));
+                arguments[0].dispatchEvent(new Event('keyup', { bubbles: true }));
+                
+                console.log('Date field value after setting:', arguments[0].value);
+            """, field_element, date_value)
+            
+            # Give time for any JavaScript validation/processing
+            time.sleep(1)
+            
+            # Verify the value was set correctly with multiple checks
+            for attempt in range(3):
+                actual_value = field_element.get_attribute('value')
+                self.logger.info(f"Verification attempt {attempt + 1}: {field_type} field value = '{actual_value}'")
+                
+                if actual_value == date_value:
+                    self.logger.info(f"SUCCESS: {field_type} date field correctly set to: {actual_value}")
+                    return
+                elif actual_value and actual_value != current_value:
+                    self.logger.warning(f"PARTIAL: {field_type} field has value '{actual_value}' but expected '{date_value}'")
+                    break
+                else:
+                    # Try force setting again
+                    self.driver.execute_script("arguments[0].value = arguments[1];", field_element, date_value)
+                    time.sleep(0.5)
+            
+            # Final verification
+            final_value = field_element.get_attribute('value')
+            if final_value != date_value:
+                self.logger.error(f"FAILED: {field_type} date field final value '{final_value}' does not match expected '{date_value}'")
+                raise Exception(f"Date field {field_type} could not be set correctly")
+            
+        except Exception as e:
+            self.logger.error(f"Failed to set {field_type} date field: {str(e)}")
+            raise
+    
+    def _wait_for_download_completion_enhanced(self, initial_files):
+        """Enhanced download completion detection with comprehensive validation"""
+        self.logger.info("ENHANCED DOWNLOAD DETECTION: Waiting for file completion...")
+        timeout = 90  # Extended timeout for slow networks
+        start_time = time.time()
+        
+        downloaded_file = None
+        check_interval = 2  # Check every 2 seconds
+        
+        while time.time() - start_time < timeout:
+            current_files = list(self.download_folder.glob("*.xlsx"))
+            
+            # Check for new files
+            new_files = [f for f in current_files if f not in initial_files]
+            if new_files:
+                # Found new file(s), get the most recent
+                newest_file = max(new_files, key=lambda x: x.stat().st_mtime)
+                file_size = newest_file.stat().st_size
+                
+                self.logger.info(f"DETECTION: Found file {newest_file.name}, size: {file_size} bytes")
+                
+                # Enhanced stability check - wait for file to stop growing
+                stable_checks = 6  # Check stability for 12 seconds (6 * 2s intervals)
+                stable_count = 0
+                last_size = -1
+                
+                for stability_check in range(stable_checks):
+                    time.sleep(check_interval)
+                    current_size = newest_file.stat().st_size
+                    
+                    self.logger.info(f"Stability check {stability_check + 1}/{stable_checks}: size {current_size} bytes")
+                    
+                    if current_size == last_size and current_size > 0:
+                        stable_count += 1
+                        if stable_count >= 3:  # File stable for 3 consecutive checks (6 seconds)
+                            self.logger.info(f"STABLE: File {newest_file.name} stable at {current_size} bytes")
+                            downloaded_file = newest_file
+                            break
+                    else:
+                        stable_count = 0
+                        if current_size > last_size:
+                            self.logger.info(f"GROWING: File size increased from {last_size} to {current_size}")
+                    
+                    last_size = current_size
+                
+                if downloaded_file:
+                    break
+                else:
+                    self.logger.warning(f"File {newest_file.name} did not stabilize, continuing to wait...")
+            
+            time.sleep(check_interval)
+        
+        if not downloaded_file:
+            # Enhanced error reporting
+            final_files = list(self.download_folder.glob("*.xlsx"))
+            self.logger.error(f"TIMEOUT: No stable download found after {timeout} seconds")
+            self.logger.error(f"Initial files: {[f.name for f in initial_files]}")
+            self.logger.error(f"Final files: {[f.name for f in final_files]}")
+            
+            # Check if any files were created but not stable
+            if final_files:
+                for f in final_files:
+                    if f not in initial_files:
+                        size = f.stat().st_size
+                        self.logger.error(f"Unstable file found: {f.name} ({size} bytes)")
+            
+            raise Exception(f"Download timeout after {timeout} seconds - no stable file found")
+        
+        return downloaded_file
+    
+    def _set_date_filters_enhanced(self, start_date, end_date):
+        """Enhanced date filter setting with validation and debugging"""
+        self.logger.info(f"ENHANCED DATE FILTERS: Setting {start_date} to {end_date} for {self.export_type}")
+        
+        try:
+            # Take screenshot before setting dates
+            self.driver.save_screenshot(f"before_date_set_{self.export_type}.png")
+            
+            # Convert and validate date format
+            start_formatted = self._validate_and_format_date(start_date)
+            end_formatted = self._validate_and_format_date(end_date)
+            
+            self.logger.info(f"Formatted dates: start={start_formatted}, end={end_formatted}")
+            
+            # Use export-specific date selectors from config
+            start_date_selector = self.export_config["selectors"].get("start_date")
+            end_date_selector = self.export_config["selectors"].get("end_date")
+            
+            self.logger.info(f"Using selectors: start='{start_date_selector}', end='{end_date_selector}'")
+            
+            # Enhanced field finding and setting
+            if start_date_selector:
+                start_field = self._find_date_field_enhanced(start_date_selector, "start")
+                if start_field:
+                    self._set_date_field_value_enhanced(start_field, start_formatted, "start")
+            
+            if end_date_selector:
+                end_field = self._find_date_field_enhanced(end_date_selector, "end")
+                if end_field:
+                    self._set_date_field_value_enhanced(end_field, end_formatted, "end")
+            
+            # Take screenshot after setting dates
+            self.driver.save_screenshot(f"after_date_set_{self.export_type}.png")
+            
+            # Wait for any dynamic content to load
+            time.sleep(2)
+            
+        except Exception as e:
+            self.logger.error(f"Enhanced date filter setup failed: {str(e)}")
+            self.driver.save_screenshot(f"date_filter_error_{self.export_type}.png")
             raise
     
     def _set_date_filters(self, start_date, end_date):

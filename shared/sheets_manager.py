@@ -58,14 +58,16 @@ class SheetsManager:
             else:
                 self.logger.warning("DataFrame has no data rows - only headers or completely empty")
             
-            # Handle empty data gracefully (headers-only files)
+            # Enhanced empty data handling with better validation
             if new_df.empty or len(new_df) == 0:
                 if len(new_df.columns) > 0:
                     # File has headers but no data - this is valid (no transactions for this date)
-                    self.logger.info(f"No data available for {self.export_config['name']} - headers-only file (valid state)")
+                    self.logger.info(f"HEADERS ONLY: {self.export_config['name']} - no data for this date range (valid state)")
+                    self.logger.info(f"Header columns found: {list(new_df.columns)}")
                     return True  # Treat as successful - no data to upload
                 else:
                     # Completely empty file - this is an error
+                    self.logger.error(f"CRITICAL ERROR: File is completely empty (no headers or data) for {self.export_config['name']}")
                     raise Exception("Downloaded file is completely empty (no headers or data)!")
             
             self.logger.info(f"New data loaded: {len(new_df)} rows, {len(new_df.columns)} columns")
