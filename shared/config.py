@@ -92,7 +92,7 @@ class ExportConfig:
             "selectors": {
                 "start_date": 'input[name="start_date"]',
                 "end_date": 'input[name="end_date"]', 
-                "export_button": 'button[type="submit"]',
+                "export_button": 'button.btn.btn-primary',
                 "export_button_xpath": '//button[contains(text(), "Export")]',
                 "date_format": "YYYY-MM-DD"
             }
@@ -108,7 +108,7 @@ class ExportConfig:
             "selectors": {
                 "start_date": 'input[name="start"]',
                 "end_date": 'input[name="end"]',
-                "export_button": 'button.expot-pdf',
+                "export_button": 'button.btn.btn-success.m3.expot-pdf',
                 "date_format": "YYYY-MM-DD"
             }
         },

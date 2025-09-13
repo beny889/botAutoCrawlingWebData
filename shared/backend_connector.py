@@ -220,16 +220,25 @@ class BackendConnector:
             # Get initial file count
             initial_files = list(self.download_folder.glob("*.xlsx"))
             
-            # Try common export button selectors - prioritizing specific transaction selectors
-            export_selectors = [
-                'button.btn.btn-primary',  # Most specific first based on user HTML
-                'button[type="submit"]',
+            # Try export button selectors from config first, then fallbacks
+            config_selector = self.export_config["selectors"].get("export_button")
+            export_selectors = []
+            
+            # Add config selector first if exists
+            if config_selector:
+                export_selectors.append(config_selector)
+            
+            # Add specific selectors found in logs for different export types
+            export_selectors.extend([
+                'button.btn.btn-success.m3.expot-pdf',  # For pembayaran_koin, user, point_trx
+                'button.btn.btn-primary',  # For transaksi export
                 'button:contains("Export")',
+                'button[type="submit"]',
                 '.btn:contains("Export")', 
                 'input[type="submit"][value*="Export"]',
                 'a:contains("Export")',
                 '.btn-primary'
-            ]
+            ])
             
             export_clicked = False
             clicked_selector = None
