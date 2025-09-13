@@ -220,19 +220,24 @@ class BackendConnector:
             # Get initial file count
             initial_files = list(self.download_folder.glob("*.xlsx"))
             
-            # Try common export button selectors
+            # Try common export button selectors - prioritizing specific transaction selectors
             export_selectors = [
+                'button.btn.btn-primary',  # Most specific first based on user HTML
+                'button[type="submit"]',
                 'button:contains("Export")',
                 '.btn:contains("Export")', 
                 'input[type="submit"][value*="Export"]',
                 'a:contains("Export")',
-                'button[type="submit"]',
                 '.btn-primary'
             ]
             
             export_clicked = False
+            clicked_selector = None
+            
             for selector in export_selectors:
                 try:
+                    self.logger.info(f"Trying export button selector: {selector}")
+                    
                     # Convert CSS selector to XPath for contains functionality
                     if ":contains(" in selector:
                         text = selector.split(':contains("')[1].split('")')[0]
@@ -248,36 +253,97 @@ class BackendConnector:
                     else:
                         element = self.driver.find_element(By.CSS_SELECTOR, selector)
                     
+                    # Log button details before clicking
+                    button_text = element.text or element.get_attribute("value") or "No text"
+                    self.logger.info(f"Found export button with text: '{button_text}' using selector: {selector}")
+                    
+                    # Scroll to element and ensure it's clickable
+                    self.driver.execute_script("arguments[0].scrollIntoView();", element)
+                    time.sleep(1)
+                    
                     element.click()
                     export_clicked = True
+                    clicked_selector = selector
+                    self.logger.info(f"Successfully clicked export button: {selector}")
+                    
+                    # Give the system time to process the export request
+                    time.sleep(3)
                     break
-                except:
+                    
+                except Exception as e:
+                    self.logger.debug(f"Selector {selector} failed: {str(e)}")
                     continue
             
             if not export_clicked:
+                self.logger.error("Export button search failed - taking screenshot for debugging")
+                self.driver.save_screenshot(f"export_button_not_found_{self.export_type}.png")
+                
+                # List all buttons for debugging
+                all_buttons = self.driver.find_elements(By.TAG_NAME, "button")
+                self.logger.error(f"Found {len(all_buttons)} buttons on page:")
+                for i, btn in enumerate(all_buttons):
+                    btn_text = btn.text or btn.get_attribute("value") or "No text"
+                    btn_class = btn.get_attribute("class") or "No class"
+                    btn_type = btn.get_attribute("type") or "No type"
+                    self.logger.error(f"Button {i}: text='{btn_text}', class='{btn_class}', type='{btn_type}'")
+                
                 raise Exception("Could not find export button")
             
-            # Wait for download to complete
+            self.logger.info(f"Export initiated using selector: {clicked_selector}")
+            
+            # Wait for download to complete with enhanced detection
             self.logger.info("Waiting for download to complete...")
             timeout = 60  # 60 seconds timeout
             start_time = time.time()
             
+            downloaded_file = None
             while time.time() - start_time < timeout:
                 current_files = list(self.download_folder.glob("*.xlsx"))
-                if len(current_files) > len(initial_files):
-                    # New file appeared, wait a bit more for it to complete
-                    time.sleep(3)
-                    break
+                
+                # Check for new files
+                new_files = [f for f in current_files if f not in initial_files]
+                if new_files:
+                    # Found new file, check if it's complete and not empty
+                    newest_file = max(new_files, key=lambda x: x.stat().st_mtime)
+                    file_size = newest_file.stat().st_size
+                    
+                    self.logger.info(f"Found new file: {newest_file.name}, size: {file_size} bytes")
+                    
+                    # Wait for file to stabilize (stop growing)
+                    stable_count = 0
+                    last_size = 0
+                    
+                    for _ in range(10):  # Check for 10 seconds
+                        time.sleep(1)
+                        current_size = newest_file.stat().st_size
+                        
+                        if current_size == last_size and current_size > 0:
+                            stable_count += 1
+                            if stable_count >= 3:  # File stable for 3 seconds
+                                downloaded_file = newest_file
+                                break
+                        else:
+                            stable_count = 0
+                        
+                        last_size = current_size
+                        self.logger.info(f"File size: {current_size} bytes, stable count: {stable_count}")
+                    
+                    if downloaded_file:
+                        break
+                
                 time.sleep(1)
             else:
-                raise Exception("Download timeout - no new file appeared")
+                raise Exception("Download timeout - no valid file appeared within timeout")
             
-            # Find the newest file
-            all_files = list(self.download_folder.glob("*.xlsx"))
-            if not all_files:
-                raise Exception("No downloaded file found")
+            if not downloaded_file:
+                raise Exception("Download failed - no valid file found")
             
-            newest_file = max(all_files, key=lambda x: x.stat().st_mtime)
+            # Verify file is not empty
+            file_size = downloaded_file.stat().st_size
+            if file_size == 0:
+                raise Exception(f"Downloaded file is empty! File: {downloaded_file.name}")
+            
+            self.logger.info(f"Download completed - File size: {file_size} bytes")
             
             # Generate new filename with timestamp
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -285,9 +351,9 @@ class BackendConnector:
             new_file_path = self.download_folder / new_filename
             
             # Rename file
-            newest_file.rename(new_file_path)
+            downloaded_file.rename(new_file_path)
             
-            self.logger.info(f"File downloaded successfully: {new_file_path}")
+            self.logger.info(f"File downloaded successfully: {new_file_path} ({file_size} bytes)")
             return new_file_path
             
         except Exception as e:
