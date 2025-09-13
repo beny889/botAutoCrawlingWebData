@@ -49,6 +49,15 @@ class SheetsManager:
             # Read Excel file
             new_df = pd.read_excel(file_path)
             
+            # Debug file content
+            self.logger.info(f"File analysis: {len(new_df)} rows, {len(new_df.columns)} columns")
+            if len(new_df.columns) > 0:
+                self.logger.info(f"Column names: {list(new_df.columns)}")
+            if len(new_df) > 0:
+                self.logger.info(f"First row sample: {new_df.iloc[0].to_dict() if len(new_df) > 0 else 'No data rows'}")
+            else:
+                self.logger.warning("DataFrame has no data rows - only headers or completely empty")
+            
             # Validate data
             if new_df.empty:
                 raise Exception("Downloaded file is empty!")
