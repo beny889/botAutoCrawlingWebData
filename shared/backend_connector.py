@@ -395,47 +395,39 @@ class BackendConnector:
             else:
                 end_formatted = end_date.strftime("%Y-%m-%d")
             
-            # Try to find and fill date fields
-            date_selectors = [
-                'input[name="start_date"]',
-                'input[name="end_date"]',
-                'input[placeholder*="dd/mm/yyyy"]'
-            ]
+            # Use export-specific date selectors from config
+            start_date_selector = self.export_config["selectors"].get("start_date")
+            end_date_selector = self.export_config["selectors"].get("end_date")
             
-            # Find start date field
+            # Find start date field using config selector
             start_field = None
-            for selector in date_selectors:
+            if start_date_selector:
                 try:
-                    elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
-                    if elements:
-                        start_field = elements[0]  # First one is usually start date
-                        break
-                except:
-                    continue
+                    start_field = self.driver.find_element(By.CSS_SELECTOR, start_date_selector)
+                except Exception as e:
+                    self.logger.warning(f"Could not find start date field with selector {start_date_selector}: {str(e)}")
             
-            # Find end date field
+            # Find end date field using config selector
             end_field = None
-            for selector in date_selectors:
+            if end_date_selector:
                 try:
-                    elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
-                    if len(elements) >= 2:
-                        end_field = elements[1]  # Second one is usually end date
-                        break
-                    elif len(elements) == 1 and start_field != elements[0]:
-                        end_field = elements[0]
-                        break
-                except:
-                    continue
+                    end_field = self.driver.find_element(By.CSS_SELECTOR, end_date_selector)
+                except Exception as e:
+                    self.logger.warning(f"Could not find end date field with selector {end_date_selector}: {str(e)}")
             
             if start_field:
                 start_field.clear()
                 start_field.send_keys(start_formatted)
-                self.logger.info(f"Start date set: {start_formatted}")
+                self.logger.info(f"Start date set using selector '{start_date_selector}': {start_formatted}")
+            else:
+                self.logger.error(f"Start date field not found! Selector: {start_date_selector}")
             
             if end_field:
                 end_field.clear()
                 end_field.send_keys(end_formatted)
-                self.logger.info(f"End date set: {end_formatted}")
+                self.logger.info(f"End date set using selector '{end_date_selector}': {end_formatted}")
+            else:
+                self.logger.error(f"End date field not found! Selector: {end_date_selector}")
                 
         except Exception as e:
             self.logger.warning(f"Date filter setup failed: {str(e)}")
