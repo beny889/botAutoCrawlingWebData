@@ -1,124 +1,31 @@
+# Final Production Deployment Configuration
+# Docker + Cron Service Architecture for Andalan ATK Backend Export Automation
+
 services:
-  - type: web
-    name: automation-bot-final-fixed
-    env: python
-    plan: free
-    pythonVersion: "3.11.9"
-    buildCommand: |
-      echo "=== Starting Enhanced Browser Installation ==="
-      python --version
-      
-      # Install Python dependencies first
-      pip install --no-cache-dir --upgrade pip
-      pip install --no-cache-dir numpy==1.24.4
-      pip install --no-cache-dir -r requirements.txt
-      
-      # System package installation with root privileges (available during build)
-      echo "Installing system dependencies..."
-      apt-get update
-      apt-get install -y wget unzip curl gnupg2 software-properties-common xvfb
-      
-      # Method 1: Install Google Chrome stable (most reliable)
-      echo "Method 1: Installing Google Chrome via official repository..."
-      wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/googlechrome-linux-keyring.gpg
-      echo "deb [arch=amd64 signed-by=/usr/share/keyrings/googlechrome-linux-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | tee /etc/apt/sources.list.d/google-chrome.list
-      apt-get update
-      apt-get install -y google-chrome-stable || echo "Google Chrome install failed"
-      
-      # Method 2: Fallback to Chromium
-      echo "Method 2: Installing Chromium as fallback..."
-      apt-get install -y chromium-browser chromium-chromedriver || echo "Chromium install failed"
-      
-      # Method 3: Create necessary directories and links
-      echo "Method 3: Creating browser links and directories..."
-      mkdir -p /opt/chrome
-      ln -sf /usr/bin/google-chrome-stable /opt/chrome/chrome || echo "Chrome link creation failed"
-      ln -sf /usr/bin/chromium-browser /opt/chrome/chromium || echo "Chromium link creation failed"
-      
-      # Final comprehensive browser availability check
-      echo "=== Final Browser Installation Verification ==="
-      echo "Checking available browsers:"
-      
-      for browser in google-chrome-stable google-chrome chromium-browser chromium; do
-        if command -v "$browser" >/dev/null 2>&1; then
-          browser_path=$(which "$browser")
-          echo "✓ FOUND: $browser at $browser_path"
-          if "$browser" --version 2>/dev/null; then
-            echo "  Version check: SUCCESS"
-          else
-            echo "  Version check: FAILED"
-          fi
-        else
-          echo "✗ MISSING: $browser"
-        fi
-      done
-      
-      echo "Checking browser executables with full paths:"
-      test -f /usr/bin/google-chrome-stable && echo "✓ /usr/bin/google-chrome-stable exists" || echo "✗ /usr/bin/google-chrome-stable missing"
-      test -f /usr/bin/chromium-browser && echo "✓ /usr/bin/chromium-browser exists" || echo "✗ /usr/bin/chromium-browser missing"
-      
-      echo "=== Browser Installation Complete ==="
-    startCommand: |
-      # Set up environment for stable deployment
-      export TZ=Asia/Jakarta
-      export DISPLAY=:99
-      export PYTHONUNBUFFERED=1
-      
-      # Start virtual display for headless Chrome
-      Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
-      
-      # Enhanced browser verification
-      echo "=== ENHANCED BROWSER VERIFICATION ==="
-      browser_found=false
-      
-      for browser in google-chrome-stable google-chrome chromium-browser chromium; do
-        if command -v "$browser" >/dev/null 2>&1; then
-          echo "✓ BROWSER FOUND: $browser"
-          if "$browser" --version 2>/dev/null; then
-            echo "✓ BROWSER WORKING: Version check successful"
-            browser_found=true
-            break
-          else
-            echo "⚠ BROWSER ISSUE: Version check failed for $browser"
-          fi
-        fi
-      done
-      
-      if [ "$browser_found" = false ]; then
-        echo "❌ CRITICAL: No working browser found - automation will fail"
-        exit 1
-      fi
-      
-      # OPTIMIZED SINGLE EXPORT EXECUTION
-      echo "=== OPTIMIZED SINGLE EXPORT EXECUTION ==="
-      echo "Service: automation-bot-single-export-v2"
-      echo "Target: pembayaran_koin export only"
-      echo "Date: 2025-09-11 (confirmed data available)"
-      echo "Mode: Production headless with enhanced validation"
-      
-      # Execute single export with comprehensive error handling
-      echo "Executing: python main_scheduler.py --export pembayaran_koin --headless --production --date 2025-09-11"
-      if python main_scheduler.py --export pembayaran_koin --headless --production --date 2025-09-11; then
-        echo "✅ SINGLE EXPORT COMPLETED SUCCESSFULLY"
-        echo "Staying alive to prevent restart loops..."
-        
-        # Keep service alive after successful execution
-        while true; do
-          echo "Service completed successfully. Sleeping for 1 hour..."
-          sleep 3600
-        done
-      else
-        echo "❌ SINGLE EXPORT FAILED - Check logs for details"
-        exit 1
-      fi
-    # Environment variables must be set in Render.com dashboard:
-    # BACKEND_USERNAME, BACKEND_PASSWORD, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID
-    envVars:
-      - key: HEADLESS
-        value: "true"
-      - key: TZ
-        value: "Asia/Jakarta"
-      - key: PYTHONUNBUFFERED
-        value: "1"
-      - key: DISABLE_NOTIFICATIONS
-        value: "true"
+- type: cron
+  name: andalan-atk-automation-production
+  schedule: "0 1,11 * * *"  # 8:00 AM & 6:00 PM WIB (01:00 & 11:00 UTC)
+  dockerfilePath: ./Dockerfile
+  dockerContext: .
+
+  # Environment Variables - Production Configuration
+  envVars:
+  - key: TELEGRAM_TOKEN
+    value: "7617892433:AAHrMesr-6MosGqMq5z0JVxFKa61ZAr_abM"
+  - key: TELEGRAM_CHAT_ID
+    value: "-4924885979"
+  - key: DISABLE_NOTIFICATIONS
+    value: "false"  # Enable notifications in production
+  - key: PYTHONUNBUFFERED
+    value: "1"
+  - key: DISPLAY
+    value: ":99"
+  - key: CHROME_BIN
+    value: "/usr/bin/google-chrome-stable"
+  - key: CHROME_PATH
+    value: "/usr/bin/google-chrome-stable"
+  - key: TZ
+    value: "Asia/Jakarta"
+
+  # Health check disabled for cron jobs (not applicable)
+  # Resource optimization for cloud environment

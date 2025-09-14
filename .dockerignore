@@ -1,0 +1,60 @@
+# Docker ignore file for automation project
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# Downloads (will be created in container)
+downloads/
+*.xlsx
+*.pdf
+
+# Git
+.git/
+.gitignore
+
+# Environment variables
+.env
+.env.local
+
+# Documentation (not needed in container)
+*.md
+TASK.md
+PLANNING.md
+
+# Development files
+test_*.py
+debug_*.py
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# Node (if any)
+node_modules/
+npm-debug.log*
+
+# Docker
+Dockerfile.*
+docker-compose*.yml

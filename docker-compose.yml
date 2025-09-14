@@ -1,0 +1,33 @@
+# Docker Compose for local testing
+version: '3.8'
+
+services:
+  chrome-validation:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: automation-chrome-test
+    environment:
+      - DISPLAY=:99
+      - PYTHONUNBUFFERED=1
+      - DISABLE_NOTIFICATIONS=true
+    volumes:
+      - ./downloads:/app/downloads
+      - ./logs:/app/logs
+    networks:
+      - automation-network
+
+  # Optional: X11 server for testing (if needed)
+  xvfb:
+    image: selenium/standalone-chrome:latest
+    container_name: selenium-chrome
+    ports:
+      - "4444:4444"
+    environment:
+      - DISPLAY=:99
+    networks:
+      - automation-network
+
+networks:
+  automation-network:
+    driver: bridge
