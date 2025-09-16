@@ -27,13 +27,17 @@
 ### Critical Issues Resolved During Development & Deployment:
 
 #### Issue #1: Google Service Account JSON Parsing ❌→✅ (LATEST)
-**Error**: `Invalid \escape: line 1 column 568` and control character issues
-**Root Cause**: Environment variable contains literal control characters (ASCII 0-31)
-**Solution Applied**:
-- Character-by-character control character removal
-- Multi-method JSON parsing approach (AST, codecs, systematic fixes)
-- Smart fallback to Google Sheets bypass mode
-- Comprehensive debugging and error handling
+**Errors**: Multi-stage JSON parsing failures
+- `Invalid \escape: line 1 column 613 (char 612)` → ✅ MISDIAGNOSIS: Wrong position
+- `Invalid control character at: line 1 column 58 (char 57)` → ✅ FIXED: Control characters
+- `ord() expected a character, but string of length 2 found` → ✅ FIXED: String length validation
+
+**Root Cause**: Environment variable corruption + string manipulation bugs
+**Solutions Applied**:
+- ✅ ALL control character removal (28 newlines cleaned at position 57)
+- ✅ ord() length validation to prevent multi-character string errors
+- ✅ Comprehensive error documentation and debugging timeline
+- 🔧 Enhanced JSON parsing with progressive fallback methods
 
 #### Issue #2: Selenium Dependency Missing ❌→✅
 **Error**: `ModuleNotFoundError: No module named 'selenium'`
