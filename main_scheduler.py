@@ -306,13 +306,25 @@ class MainScheduler:
             try:
                 result = self.run_single_export(export_type, start_date, end_date)
                 execution_time = (datetime.now() - export_start_time).total_seconds()
-                
-                if result:
-                    # Send success notification for individual export
-                    self.telegram.send_export_success(export_type, 0, execution_time)  # Records count not available in legacy mode
+
+                # Handle both old boolean and new dict return formats
+                if isinstance(result, dict):
+                    success = result.get("success", False)
+                    records = result.get("records", 0)
+                    error = result.get("error", "")
+
+                    if success:
+                        self.telegram.send_export_success(export_type, records, execution_time)
+                        results[export_type] = {"success": True, "records": records, "time": execution_time}
+                    else:
+                        self.telegram.send_export_failure(export_type, error or "Export failed")
+                        results[export_type] = {"success": False, "error": error or "Export failed", "time": execution_time}
+                elif result:
+                    # Legacy boolean True
+                    self.telegram.send_export_success(export_type, 0, execution_time)
                     results[export_type] = {"success": True, "records": 0, "time": execution_time}
                 else:
-                    # Send failure notification
+                    # Legacy boolean False
                     self.telegram.send_export_failure(export_type, "Export returned False")
                     results[export_type] = {"success": False, "error": "Export returned False", "time": execution_time}
             except Exception as e:

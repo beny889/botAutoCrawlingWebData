@@ -55,15 +55,25 @@ class SheetsManager:
         if os.getenv('SKIP_GOOGLE_SHEETS') == 'true':
             self.logger.info(f"TEMPORARY: Skipping Google Sheets upload for {self.export_config['name']} - backend testing mode")
             self.logger.info(f"File downloaded successfully: {file_path}")
-            # Verify file exists and get info
+            # Verify file exists and get record count
             from pathlib import Path
             if Path(file_path).exists():
                 file_size = Path(file_path).stat().st_size
                 self.logger.info(f"✅ SUCCESS: Downloaded {file_size} bytes to {file_path}")
-                return True
+
+                # Get record count from file
+                try:
+                    import pandas as pd
+                    df = pd.read_excel(file_path)
+                    record_count = len(df)
+                    self.logger.info(f"File contains {record_count} data rows")
+                    return {"success": True, "records": record_count}
+                except Exception as e:
+                    self.logger.warning(f"Could not count records in file: {e}")
+                    return {"success": True, "records": 0}
             else:
                 self.logger.error(f"❌ FAILED: File not found at {file_path}")
-                return False
+                return {"success": False, "records": 0}
 
         try:
             # Open Google Sheet

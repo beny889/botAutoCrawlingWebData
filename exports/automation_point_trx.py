@@ -58,17 +58,25 @@ class PointTrxExportAutomation:
             downloaded_file = self.connector.download_export_file(start_date, end_date)
             
             # Upload to Google Sheets with smart validation
-            self.sheets_manager.upload_with_smart_validation(downloaded_file)
-            
+            upload_result = self.sheets_manager.upload_with_smart_validation(downloaded_file)
+
             # Cleanup old files
             self.connector.cleanup_old_files()
-            
-            self.logger.info("Point transaction export completed successfully!")
-            return True
-            
+
+            # Handle new return format
+            if isinstance(upload_result, dict):
+                success = upload_result.get("success", False)
+                records = upload_result.get("records", 0)
+                self.logger.info(f"Point transaction export completed! Success: {success}, Records: {records}")
+                return upload_result
+            else:
+                # Legacy return format (boolean)
+                self.logger.info("Point transaction export completed successfully!")
+                return {"success": upload_result, "records": 0}
+
         except Exception as e:
             self.logger.error(f"Point transaction export failed: {str(e)}")
-            return False
+            return {"success": False, "records": 0, "error": str(e)}
         
         finally:
             # Cleanup browser resources
