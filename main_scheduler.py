@@ -25,17 +25,28 @@ def run_deployment_validation():
                 # Remove outer quotes if present
                 json_content = json_content[1:-1]
 
-            # Handle newlines in private key and control characters properly
-            # Fix common JSON formatting issues from environment variables
-            json_content = json_content.replace('\\n', '\\n')  # Keep escaped newlines as escaped
-            json_content = json_content.replace('\\"', '"').replace('\\\\', '\\')
-
-            # Remove any actual newlines that shouldn't be there (control characters)
-            json_content = json_content.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ')
-
-            # Clean up multiple spaces
+            # Advanced JSON cleaning for Google Service Account
             import re
+
+            # Handle common escape sequence issues step by step
+            print(f"DEBUG: Original JSON length: {len(json_content)}")
+
+            # Remove any actual control characters (newlines, tabs, carriage returns)
+            json_content = json_content.replace('\n', '').replace('\r', '').replace('\t', '')
+
+            # Fix common escape sequence patterns
+            json_content = json_content.replace('\\"', '"')  # Fix escaped quotes
+            json_content = json_content.replace('\\\\', '\\')  # Fix double backslashes
+
+            # Handle private key newlines properly - they should be \\n in JSON
+            # Replace any remaining \n with \\n
+            json_content = re.sub(r'(?<!\\)\\n', '\\\\n', json_content)
+
+            # Clean up any multiple spaces created by removing control characters
             json_content = re.sub(r'\s+', ' ', json_content).strip()
+
+            print(f"DEBUG: Cleaned JSON length: {len(json_content)}")
+            print(f"DEBUG: JSON preview after cleaning: {json_content[:200]}...")
 
             # Validate JSON structure
             parsed_json = json.loads(json_content)
