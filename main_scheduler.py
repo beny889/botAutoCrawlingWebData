@@ -178,6 +178,10 @@ def run_deployment_validation():
     os.environ['DEPLOYMENT_MODE'] = 'production'
     os.environ['SKIP_STRICT_VALIDATION'] = 'true'
 
+    # 5. TEMPORARY: Skip Google Sheets to test backend automation
+    os.environ['SKIP_GOOGLE_SHEETS'] = 'true'
+    print("🚧 TEMPORARY: Google Sheets upload disabled - testing backend automation only")
+
     print("✅ All validations passed - proceeding with automation")
 
 # Run validation immediately

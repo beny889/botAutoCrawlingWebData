@@ -23,13 +23,21 @@ class SheetsManager:
     
     def _setup_google_client(self):
         """Setup Google Sheets API client using environment variable or file"""
+        import os
+
+        # TEMPORARY: Skip Google Sheets setup to test backend automation
+        if os.getenv('SKIP_GOOGLE_SHEETS') == 'true':
+            self.logger.info(f"TEMPORARY: Skipping Google Sheets setup for {self.export_config['name']} - backend testing mode")
+            self.gc = None
+            return
+
         try:
             # Get service account info (supports both environment variable and file)
             service_account_info = ExportConfig.get_service_account_info()
-            
+
             # Create credentials from the service account info
             credentials = Credentials.from_service_account_info(
-                service_account_info, 
+                service_account_info,
                 scopes=ExportConfig.GOOGLE_API_SCOPES
             )
             self.gc = gspread.authorize(credentials)
@@ -41,7 +49,22 @@ class SheetsManager:
     def upload_with_smart_validation(self, file_path, use_smart_validation=True):
         """Upload data with smart validation and duplicate detection"""
         self.logger.info(f"Uploading {self.export_config['name']} with smart validation...")
-        
+
+        # TEMPORARY: Skip Google Sheets upload to test backend automation
+        import os
+        if os.getenv('SKIP_GOOGLE_SHEETS') == 'true':
+            self.logger.info(f"TEMPORARY: Skipping Google Sheets upload for {self.export_config['name']} - backend testing mode")
+            self.logger.info(f"File downloaded successfully: {file_path}")
+            # Verify file exists and get info
+            from pathlib import Path
+            if Path(file_path).exists():
+                file_size = Path(file_path).stat().st_size
+                self.logger.info(f"✅ SUCCESS: Downloaded {file_size} bytes to {file_path}")
+                return True
+            else:
+                self.logger.error(f"❌ FAILED: File not found at {file_path}")
+                return False
+
         try:
             # Open Google Sheet
             sheet = self.gc.open_by_url(self.export_config["google_sheet_url"]).sheet1
