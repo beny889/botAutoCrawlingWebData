@@ -91,12 +91,61 @@ def run_deployment_validation():
             sys.exit(1)
 
     # 3. Test other critical imports
-    try:
-        import pandas, gspread, requests
-        print("✅ All dependencies available")
-    except ImportError as e:
-        print(f"❌ Dependency import failed: {e}")
-        sys.exit(1)
+    dependencies = [
+        ('pandas', '2.0.3'),
+        ('gspread', '5.11.3'),
+        ('google-auth', '2.23.4'),
+        ('openpyxl', '3.1.2'),
+        ('requests', '2.31.0'),
+        ('numpy', '1.24.4'),
+        ('webdriver-manager', '4.0.1')
+    ]
+
+    missing_deps = []
+    for dep_name, version in dependencies:
+        try:
+            # Handle import name differences
+            import_name = dep_name
+            if dep_name == 'google-auth':
+                import_name = 'google.auth'
+            elif dep_name == 'webdriver-manager':
+                import_name = 'webdriver_manager'
+
+            __import__(import_name)
+            print(f"✅ {dep_name}: Available")
+        except ImportError:
+            print(f"❌ {dep_name}: Missing")
+            missing_deps.append((dep_name, version))
+
+    if missing_deps:
+        print(f"=== INSTALLING {len(missing_deps)} MISSING DEPENDENCIES ===")
+        import subprocess
+
+        for dep_name, version in missing_deps:
+            try:
+                print(f"Installing {dep_name}=={version}...")
+                subprocess.run([sys.executable, '-m', 'pip', 'install', f'{dep_name}=={version}'],
+                              check=True, timeout=120)
+                print(f"✅ {dep_name} installed successfully")
+            except Exception as e:
+                print(f"❌ Failed to install {dep_name}: {e}")
+
+        # Test imports again after installation
+        print("=== VERIFYING INSTALLATIONS ===")
+        for dep_name, version in missing_deps:
+            try:
+                import_name = dep_name
+                if dep_name == 'google-auth':
+                    import_name = 'google.auth'
+                elif dep_name == 'webdriver-manager':
+                    import_name = 'webdriver_manager'
+
+                __import__(import_name)
+                print(f"✅ {dep_name}: Now available after installation")
+            except ImportError as e:
+                print(f"❌ {dep_name}: Still missing after installation: {e}")
+
+    print("✅ All dependency checks completed")
 
     print("✅ All validations passed - proceeding with automation")
 
