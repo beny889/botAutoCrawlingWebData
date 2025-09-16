@@ -202,51 +202,51 @@ class ExportConfig:
                             try:
                                 print("DEBUG: Attempting base64 reconstruction method")
 
-                            # Look for the private_key field and reconstruct it properly
-                            import base64
+                                # Look for the private_key field and reconstruct it properly
+                                import base64
 
-                            # Find the private key in the JSON and clean it separately
-                            private_key_start = fixed_content.find('"private_key"')
-                            if private_key_start > -1:
-                                # Extract the private key value
-                                key_value_start = fixed_content.find(':', private_key_start) + 1
-                                key_value_start = fixed_content.find('"', key_value_start) + 1
-                                key_value_end = fixed_content.find('"', key_value_start)
+                                # Find the private key in the JSON and clean it separately
+                                private_key_start = clean_content.find('"private_key"')
+                                if private_key_start > -1:
+                                    # Extract the private key value
+                                    key_value_start = clean_content.find(':', private_key_start) + 1
+                                    key_value_start = clean_content.find('"', key_value_start) + 1
+                                    key_value_end = clean_content.find('"', key_value_start)
 
-                                if key_value_end > key_value_start:
-                                    private_key_content = fixed_content[key_value_start:key_value_end]
-                                    print(f"DEBUG: Found private key content length: {len(private_key_content)}")
+                                    if key_value_end > key_value_start:
+                                        private_key_content = clean_content[key_value_start:key_value_end]
+                                        print(f"DEBUG: Found private key content length: {len(private_key_content)}")
 
-                                    # Clean the private key content more carefully
-                                    clean_private_key = private_key_content.replace('\\n', '\n').replace('\\\\', '\\')
+                                        # Clean the private key content more carefully
+                                        clean_private_key = private_key_content.replace('\\n', '\n').replace('\\\\', '\\')
 
-                                    # Rebuild the JSON with clean private key
-                                    new_content = (fixed_content[:key_value_start] +
-                                                 clean_private_key.replace('\n', '\\n').replace('\\', '\\\\') +
-                                                 fixed_content[key_value_end:])
+                                        # Rebuild the JSON with clean private key
+                                        new_content = (clean_content[:key_value_start] +
+                                                     clean_private_key.replace('\n', '\\n').replace('\\', '\\\\') +
+                                                     clean_content[key_value_end:])
 
-                                    parsed = json_module.loads(new_content)
-                                    print("DEBUG: Base64 reconstruction method successful")
-                                    return parsed
+                                        parsed = json_module.loads(new_content)
+                                        print("DEBUG: Base64 reconstruction method successful")
+                                        return parsed
 
-                        except Exception as e3:
-                            print(f"DEBUG: Base64 reconstruction failed: {e3}")
+                            except Exception as e4:
+                                print(f"DEBUG: Base64 reconstruction failed: {e4}")
 
-                            # Method 4: Fallback to temporary Google Sheets bypass
-                            print("DEBUG: All JSON parsing methods failed - enabling temporary Google Sheets bypass")
+                                # Method 5: Fallback to temporary Google Sheets bypass
+                                print("DEBUG: All JSON parsing methods failed - enabling temporary Google Sheets bypass")
 
-                            # Temporarily disable Google Sheets to allow backend automation to work
-                            import os
-                            os.environ['SKIP_GOOGLE_SHEETS'] = 'true'
-                            print("DEBUG: Google Sheets temporarily disabled - backend automation will continue")
+                                # Temporarily disable Google Sheets to allow backend automation to work
+                                import os
+                                os.environ['SKIP_GOOGLE_SHEETS'] = 'true'
+                                print("DEBUG: Google Sheets temporarily disabled - backend automation will continue")
 
-                            # Return a dummy service account that won't be used
-                            return {
-                                "type": "service_account",
-                                "project_id": "bypass-mode",
-                                "private_key": "-----BEGIN PRIVATE KEY-----\nBYPASS\n-----END PRIVATE KEY-----",
-                                "client_email": "bypass@bypass.com"
-                            }
+                                # Return a dummy service account that won't be used
+                                return {
+                                    "type": "service_account",
+                                    "project_id": "bypass-mode",
+                                    "private_key": "-----BEGIN PRIVATE KEY-----\nBYPASS\n-----END PRIVATE KEY-----",
+                                    "client_email": "bypass@bypass.com"
+                                }
             except json.JSONDecodeError as e:
                 raise ValueError(f"GOOGLE_SERVICE_ACCOUNT_JSON environment variable contains invalid JSON: {e}")
         
