@@ -58,39 +58,78 @@ class ExportConfig:
                 print(f"DEBUG: After control char cleaning - length: {len(clean_content)}")
                 print(f"DEBUG: Clean char at 57: '{repr(clean_content[56:59]) if len(clean_content) > 58 else 'N/A'}'")
 
-                # STEP 2: TARGETED FIXING FOR POSITION 612-613 ERROR
+                # STEP 1.5: EMERGENCY POSITION 612 CHARACTER INSPECTION AND REPLACEMENT
+                # This must happen BEFORE any JSON parsing attempts
+                if len(clean_content) > 612:
+                    error_region = clean_content[605:620]
+                    char_at_612 = clean_content[612]
+                    print(f"DEBUG: EMERGENCY - Content around position 612: '{repr(error_region)}'")
+                    print(f"DEBUG: EMERGENCY - Character at position 612: '{repr(char_at_612)}' (ASCII: {ord(char_at_612)})")
+
+                    # Convert to character list for surgical replacement
+                    char_list = list(clean_content)
+
+                    # Emergency fixes for known problematic characters at position 612
+                    if char_at_612 == '\n':
+                        print("DEBUG: EMERGENCY - Replacing newline at position 612 with escaped newline")
+                        char_list[612] = '\\n'
+                    elif char_at_612 == '\\' and len(char_list) > 613 and char_list[613] not in ['"', '\\', '/', 'b', 'f', 'n', 'r', 't']:
+                        print(f"DEBUG: EMERGENCY - Invalid escape sequence \\{char_list[613] if len(char_list) > 613 else 'EOF'} at position 612")
+                        char_list[612] = '\\\\'  # Double escape the backslash
+                    elif char_at_612 == '"':
+                        print("DEBUG: EMERGENCY - Escaping unescaped quote at position 612")
+                        char_list[612] = '\\"'
+
+                    # Check surrounding positions for null characters or other issues
+                    for pos in range(max(0, 610), min(len(char_list), 615)):
+                        if ord(char_list[pos]) < 32 and char_list[pos] not in ['\t', '\n', '\r']:
+                            print(f"DEBUG: EMERGENCY - Removing control character at position {pos}")
+                            char_list[pos] = ' '  # Replace with space
+
+                    clean_content = ''.join(char_list)
+                    print(f"DEBUG: After emergency position 612 fix - length: {len(clean_content)}")
+
+                # STEP 2: IMMEDIATE JSON PARSING ATTEMPT AFTER EMERGENCY FIX
                 try:
-                    # Method 1: CHARACTER-BY-CHARACTER INSPECTION AT ERROR POSITION
-                    if len(clean_content) > 615:
-                        error_region = clean_content[605:620]
-                        print(f"DEBUG: Content around position 612: '{repr(error_region)}'")
-
-                        # Check for problematic characters at the error position
-                        char_at_612 = clean_content[612] if len(clean_content) > 612 else 'N/A'
-                        print(f"DEBUG: Character at position 612: '{repr(char_at_612)}' (ASCII: {ord(char_at_612) if char_at_612 != 'N/A' else 'N/A'})")
-
-                    # Method 1A: Fix specific escape sequence issues
-                    test_content = clean_content
-
-                    # Handle problematic escape sequences at the exact error position
-                    if len(test_content) > 612:
-                        # Common issues: \n not properly escaped, \u sequences, or literal backslashes
-                        test_content = test_content.replace('\\n', '\n').replace('\n', '\\n')  # Normalize newlines
-                        test_content = test_content.replace('\\r', '').replace('\r', '')       # Remove carriage returns
-                        test_content = test_content.replace('\\t', ' ').replace('\t', ' ')     # Normalize tabs
-                        test_content = test_content.replace('\\\\', '\\')                      # Fix double escapes
-
-                        # Fix potential \" issues that could cause position 612 errors
-                        test_content = test_content.replace('\\"', '"').replace('"', '\\"')   # Normalize quotes in values
-
-                    parsed = json_module.loads(test_content)
-                    print("DEBUG: Position 612 fix method successful")
+                    # Method 1: DIRECT PARSING AFTER EMERGENCY CHARACTER REPLACEMENT
+                    parsed = json_module.loads(clean_content)
+                    print("DEBUG: Emergency position 612 fix method successful")
                     return parsed
 
                 except json_module.JSONDecodeError as e1:
-                    print(f"DEBUG: Position 612 fix failed: {e1} at position {getattr(e1, 'pos', 'unknown')}")
+                    print(f"DEBUG: Emergency position 612 fix failed: {e1} at position {getattr(e1, 'pos', 'unknown')}")
 
-                    # Method 2: REGEX-BASED ESCAPE SEQUENCE REPAIR
+                    # Method 2: BRUTE FORCE CHARACTER SUBSTITUTION AT EXACT POSITION
+                    try:
+                        print("DEBUG: Attempting brute force character substitution")
+
+                        # If still failing at position 612, try different character replacements
+                        char_list = list(clean_content)
+
+                        if len(char_list) > 612:
+                            original_char = char_list[612]
+                            print(f"DEBUG: Trying to replace character at 612: '{repr(original_char)}'")
+
+                            # Try different replacements
+                            replacements = [' ', '', '\\\\', '\\"', '\\n']
+
+                            for replacement in replacements:
+                                try:
+                                    char_list[612] = replacement
+                                    test_content = ''.join(char_list)
+                                    parsed = json_module.loads(test_content)
+                                    print(f"DEBUG: Brute force successful with replacement: '{repr(replacement)}'")
+                                    return parsed
+                                except:
+                                    char_list[612] = original_char  # Restore for next attempt
+                                    continue
+
+                        print("DEBUG: Brute force method failed")
+
+                    except Exception as e_brute:
+                        print(f"DEBUG: Brute force method exception: {e_brute}")
+
+                    # Method 3: REGEX-BASED ESCAPE SEQUENCE REPAIR
                     try:
                         fixed_content = clean_content
 
