@@ -29,9 +29,32 @@ class ExportConfig:
         service_account_json = os.getenv('GOOGLE_SERVICE_ACCOUNT_JSON')
         if service_account_json:
             try:
-                return json.loads(service_account_json)
-            except json.JSONDecodeError:
-                raise ValueError("GOOGLE_SERVICE_ACCOUNT_JSON environment variable contains invalid JSON")
+                # Apply same JSON cleaning as in main_scheduler.py
+                import re
+
+                # Clean and fix JSON formatting issues
+                json_content = service_account_json.strip()
+
+                # Remove outer quotes if present
+                if json_content.startswith('"') and json_content.endswith('"'):
+                    json_content = json_content[1:-1]
+
+                # Remove any actual control characters (newlines, tabs, carriage returns)
+                json_content = json_content.replace('\n', '').replace('\r', '').replace('\t', '')
+
+                # Fix common escape sequence patterns
+                json_content = json_content.replace('\\"', '"')  # Fix escaped quotes
+                json_content = json_content.replace('\\\\', '\\')  # Fix double backslashes
+
+                # Handle private key newlines properly - they should be \\n in JSON
+                json_content = re.sub(r'(?<!\\)\\n', '\\\\n', json_content)
+
+                # Clean up any multiple spaces created by removing control characters
+                json_content = re.sub(r'\s+', ' ', json_content).strip()
+
+                return json.loads(json_content)
+            except json.JSONDecodeError as e:
+                raise ValueError(f"GOOGLE_SERVICE_ACCOUNT_JSON environment variable contains invalid JSON: {e}")
         
         # Fallback to local file (for development)
         service_account_file = "service-account-key.json"
