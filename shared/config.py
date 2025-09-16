@@ -44,16 +44,23 @@ class ExportConfig:
                 if json_content.startswith('"') and json_content.endswith('"'):
                     json_content = json_content[1:-1]
 
-                # CRITICAL: Remove all control characters that cause "Invalid control character" errors
-                # These are characters with ASCII codes 0-31 except for space (32)
+                # CRITICAL FIX: Remove ALL control characters including newlines and tabs
+                # The issue is at position 57 with newline character breaking JSON parsing
                 clean_content = ""
-                for char in json_content:
+                for i, char in enumerate(json_content):
                     char_code = ord(char)
-                    if char_code < 32 and char_code not in [9, 10, 13]:  # Keep tabs, newlines, carriage returns for now
-                        # Skip this control character entirely
-                        print(f"DEBUG: Skipping control character at position {len(clean_content)}: {repr(char)} (ASCII {char_code})")
-                        continue
-                    clean_content += char
+                    if char_code < 32:  # Remove ALL control characters (0-31) including newlines and tabs
+                        print(f"DEBUG: REMOVING control character at position {i}: {repr(char)} (ASCII {char_code})")
+                        if char_code == 10:  # Newline
+                            clean_content += '\\n'  # Replace with escaped newline
+                        elif char_code == 13:  # Carriage return
+                            continue  # Skip entirely
+                        elif char_code == 9:  # Tab
+                            clean_content += ' '  # Replace with space
+                        else:
+                            continue  # Skip other control characters
+                    else:
+                        clean_content += char
 
                 print(f"DEBUG: After control char cleaning - length: {len(clean_content)}")
                 print(f"DEBUG: Clean char at 57: '{repr(clean_content[56:59]) if len(clean_content) > 58 else 'N/A'}'")
