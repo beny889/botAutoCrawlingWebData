@@ -1,71 +1,71 @@
-# Production Docker Configuration for Andalan ATK Backend Export Automation
-# Optimized Chrome installation with Selenium WebDriver integration
-FROM python:3.11-slim-bullseye
+# Minimal Docker Configuration - Focus on Selenium Installation
+# Using the most reliable approach for Render.com deployment
+FROM python:3.11-slim
 
 # Set working directory
 WORKDIR /app
 
-# Install critical Python dependencies FIRST (before system packages)
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel
-RUN pip install --no-cache-dir selenium==4.15.0 webdriver-manager==4.0.1 pandas==2.0.3 gspread==5.11.3 google-auth==2.23.4 openpyxl==3.1.2 requests==2.31.0 schedule==1.2.0 numpy==1.24.4
+# Set environment to avoid interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
 
-# Verify Selenium installation immediately
-RUN python -c "import selenium; print(f'Selenium {selenium.__version__} installed successfully')"
-
-# Install system dependencies for Chrome
+# Install system dependencies in one layer
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
     unzip \
     curl \
-    xvfb \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Google Chrome
-RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add - \
-    && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list \
+# Install Google Chrome (essential for Selenium)
+RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - \
+    && echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google.list \
     && apt-get update \
     && apt-get install -y google-chrome-stable \
     && rm -rf /var/lib/apt/lists/*
 
-# Final verification of all dependencies
-RUN python -c "import selenium, pandas, gspread, requests, openpyxl; print('All dependencies verified successfully')"
+# Install Python packages one by one for maximum reliability
+RUN pip install --no-cache-dir --upgrade pip
+RUN pip install --no-cache-dir selenium==4.15.0
+RUN pip install --no-cache-dir webdriver-manager==4.0.1
+RUN pip install --no-cache-dir pandas==2.0.3
+RUN pip install --no-cache-dir gspread==5.11.3
+RUN pip install --no-cache-dir google-auth==2.23.4
+RUN pip install --no-cache-dir openpyxl==3.1.2
+RUN pip install --no-cache-dir requests==2.31.0
+RUN pip install --no-cache-dir numpy==1.24.4
 
-# Copy automation scripts and shared components
+# Test critical imports after installation
+RUN python -c "import selenium; print('Selenium OK')"
+RUN python -c "import pandas; print('Pandas OK')"
+RUN python -c "import gspread; print('Gspread OK')"
+
+# Copy application files
 COPY main_scheduler.py .
 COPY single_session_automation.py .
+COPY deployment_debug.py .
 COPY exports/ ./exports/
 COPY shared/ ./shared/
-# Note: service-account-key.json will be created from environment variable at runtime
 
-# Create downloads directory
-RUN mkdir -p downloads
+# Create required directories
+RUN mkdir -p downloads logs
 
-# Set environment variables for headless Chrome
-ENV DISPLAY=:99
+# Set Chrome environment variables
 ENV CHROME_BIN=/usr/bin/google-chrome-stable
-ENV CHROME_PATH=/usr/bin/google-chrome-stable
+ENV DISPLAY=:99
 
-# Create startup script for service account setup and runtime verification
+# Create service account key from environment variable at runtime
 RUN echo '#!/bin/bash\n\
-echo "=== RUNTIME VERIFICATION ==="\n\
-python -c "import sys; print(f\"Python version: {sys.version}\")" || exit 1\n\
-python -c "import selenium; print(f\"Selenium available: {selenium.__version__}\")" || exit 1\n\
-python -c "import pandas; print(f\"Pandas available: {pandas.__version__}\")" || exit 1\n\
-python -c "import gspread; print(\"Google Sheets API: OK\")" || exit 1\n\
-echo "=== ALL DEPENDENCIES OK ==="\n\
-\n\
-if [ -n "$GOOGLE_SERVICE_ACCOUNT_JSON" ]; then\n\
-    echo "$GOOGLE_SERVICE_ACCOUNT_JSON" > /app/service-account-key.json\n\
-    echo "Service account key created from environment variable"\n\
-else\n\
-    echo "Warning: GOOGLE_SERVICE_ACCOUNT_JSON environment variable not set"\n\
+echo "=== DEPLOYMENT DEBUG MODE ==="\n\
+echo "Running comprehensive validation before automation..."\n\
+python deployment_debug.py\n\
+if [ $? -ne 0 ]; then\n\
+    echo "❌ Validation failed - check logs above"\n\
+    exit 1\n\
 fi\n\
-\n\
-echo "Starting automation..."\n\
-exec python main_scheduler.py --all --headless --production --single-session\n' > /app/start.sh
+echo "✅ All validations passed - starting automation"\n\
+python main_scheduler.py --all --headless --production --single-session\n' > /app/start.sh && chmod +x /app/start.sh
 
-RUN chmod +x /app/start.sh
-
-# Production automation execution with service account setup
+# Execute the startup script
 CMD ["/app/start.sh"]
