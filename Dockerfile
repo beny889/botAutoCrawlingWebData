@@ -5,6 +5,13 @@ FROM python:3.11-slim-bullseye
 # Set working directory
 WORKDIR /app
 
+# Install critical Python dependencies FIRST (before system packages)
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
+RUN pip install --no-cache-dir selenium==4.15.0 webdriver-manager==4.0.1 pandas==2.0.3 gspread==5.11.3 google-auth==2.23.4 openpyxl==3.1.2 requests==2.31.0 schedule==1.2.0 numpy==1.24.4
+
+# Verify Selenium installation immediately
+RUN python -c "import selenium; print(f'Selenium {selenium.__version__} installed successfully')"
+
 # Install system dependencies for Chrome
 RUN apt-get update && apt-get install -y \
     wget \
@@ -21,23 +28,8 @@ RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add
     && apt-get install -y google-chrome-stable \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for better caching
-COPY requirements.txt .
-
-# Install Python dependencies with verbose output and error checking
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel
-RUN pip install --no-cache-dir -r requirements.txt --verbose
-
-# Force clean install if cache issues
-RUN pip uninstall -y selenium || true
-RUN pip install --no-cache-dir selenium==4.15.0 --force-reinstall
-
-# Verify critical dependencies are installed with detailed output
-RUN python -c "import sys; print(f'Python path: {sys.path}')"
-RUN python -c "import selenium; print(f'Selenium version: {selenium.__version__}'); print(f'Selenium path: {selenium.__file__}')"
-RUN python -c "import pandas; print(f'Pandas version: {pandas.__version__}')"
-RUN python -c "import gspread; print('Google Sheets API: OK')"
-RUN pip list | grep selenium
+# Final verification of all dependencies
+RUN python -c "import selenium, pandas, gspread, requests, openpyxl; print('All dependencies verified successfully')"
 
 # Copy automation scripts and shared components
 COPY main_scheduler.py .
