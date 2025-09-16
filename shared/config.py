@@ -29,7 +29,7 @@ class ExportConfig:
         service_account_json = os.getenv('GOOGLE_SERVICE_ACCOUNT_JSON')
         if service_account_json:
             try:
-                # PRECISE JSON cleaning to handle escape character issues while preserving base64 content
+                # ROBUST JSON parsing with comprehensive escape sequence handling
                 import re
                 import json as json_module
 
@@ -43,51 +43,104 @@ class ExportConfig:
                 if json_content.startswith('"') and json_content.endswith('"'):
                     json_content = json_content[1:-1]
 
-                print(f"DEBUG: Before fixing - chars 565-570: '{json_content[565:570] if len(json_content) > 570 else 'N/A'}'")
+                print(f"DEBUG: Before fixing - chars around 613: '{json_content[610:616] if len(json_content) > 616 else 'N/A'}'")
 
-                # PRECISE APPROACH: Only fix literal newlines that break JSON structure
-                # Preserve all base64 content in private_key field exactly as-is
-
+                # ROBUST APPROACH: Use AST-based JSON parsing to handle all escape sequences
                 try:
-                    # Method 1: Simple global newline replacement (preserves everything else)
-                    test_content = json_content.replace('\n', '\\n')
-                    parsed = json_module.loads(test_content)
-                    print("DEBUG: Simple global newline escape successful")
+                    # Method 1: Use ast.literal_eval for safer parsing
+                    import ast
+
+                    # Wrap in quotes to make it a string literal that ast can parse
+                    wrapped_content = f'"""{json_content}"""'
+                    try:
+                        unescaped_content = ast.literal_eval(wrapped_content)
+                        parsed = json_module.loads(unescaped_content)
+                        print("DEBUG: AST literal_eval method successful")
+                        return parsed
+                    except (ValueError, SyntaxError) as ast_error:
+                        print(f"DEBUG: AST method failed: {ast_error}")
+
+                except ImportError:
+                    print("DEBUG: AST not available, trying alternative methods")
+
+                # Method 2: Use codecs.decode to handle escape sequences
+                try:
+                    import codecs
+
+                    # Decode escape sequences properly
+                    decoded_content = codecs.decode(json_content, 'unicode_escape')
+                    parsed = json_module.loads(decoded_content)
+                    print("DEBUG: Codecs decode method successful")
                     return parsed
 
-                except json_module.JSONDecodeError as e:
-                    print(f"DEBUG: Simple approach failed with error: {e}")
-                    print(f"DEBUG: Error at position: {getattr(e, 'pos', 'unknown')}")
+                except (UnicodeDecodeError, json_module.JSONDecodeError) as decode_error:
+                    print(f"DEBUG: Codecs decode failed: {decode_error}")
 
-                    # Method 2: Only fix problematic escape sequences, preserve base64
+                # Method 3: Raw string processing to neutralize all escape sequences
+                try:
+                    # Convert all problematic backslashes to forward slashes in base64 content
+                    # This preserves the structure while avoiding escape sequence issues
+
+                    # Replace problematic escape sequences that commonly appear in base64
+                    fixed_content = json_content
+
+                    # Fix common escape sequences that break JSON parsing
+                    escape_fixes = [
+                        ('\\n', '\\\\n'),    # Fix literal newlines
+                        ('\\r', '\\\\r'),    # Fix literal carriage returns
+                        ('\\t', '\\\\t'),    # Fix literal tabs
+                        ('\\\\', '\\\\\\\\'), # Fix double backslashes
+                        ('\\"', '\\\\"'),    # Fix escaped quotes
+                    ]
+
+                    for old, new in escape_fixes:
+                        fixed_content = fixed_content.replace(old, new)
+
+                    # Remove any remaining problematic characters
+                    fixed_content = re.sub(r'[\r\n\t]', '', fixed_content)
+
+                    print(f"DEBUG: After escape fixes - length: {len(fixed_content)}")
+                    print(f"DEBUG: After fixes - chars around 613: '{fixed_content[610:616] if len(fixed_content) > 616 else 'N/A'}'")
+
+                    parsed = json_module.loads(fixed_content)
+                    print("DEBUG: Escape sequence fix method successful")
+                    return parsed
+
+                except json_module.JSONDecodeError as e3:
+                    print(f"DEBUG: Escape fix also failed: {e3}")
+                    print(f"DEBUG: Error position: {getattr(e3, 'pos', 'unknown')}")
+
+                    # Method 4: Last resort - create service account from individual environment variables
+                    print("DEBUG: Attempting to construct service account from separate environment variables")
+
                     try:
-                        # Fix only the specific characters that cause JSON parsing issues
-                        # Don't touch anything that looks like base64 content
-                        fixed_content = json_content
+                        # Try to construct the service account JSON from separate env vars if available
+                        import os
+                        constructed_account = {
+                            "type": "service_account",
+                            "project_id": os.getenv('GOOGLE_PROJECT_ID', 'neon-cinema-452004-b5'),
+                            "private_key_id": os.getenv('GOOGLE_PRIVATE_KEY_ID', ''),
+                            "private_key": os.getenv('GOOGLE_PRIVATE_KEY', '').replace('\\n', '\n'),
+                            "client_email": os.getenv('GOOGLE_CLIENT_EMAIL', ''),
+                            "client_id": os.getenv('GOOGLE_CLIENT_ID', ''),
+                            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                            "token_uri": "https://oauth2.googleapis.com/token",
+                            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+                            "client_x509_cert_url": os.getenv('GOOGLE_CLIENT_CERT_URL', '')
+                        }
 
-                        # Replace literal newlines with escaped newlines
-                        fixed_content = fixed_content.replace('\n', '\\n')
+                        # Check if we have the essential fields
+                        if constructed_account['private_key'] and constructed_account['client_email']:
+                            print("DEBUG: Successfully constructed service account from env variables")
+                            return constructed_account
+                        else:
+                            print("DEBUG: Missing essential fields for constructed service account")
 
-                        # Fix any double backslashes that might have been created
-                        fixed_content = fixed_content.replace('\\\\n', '\\n')
+                    except Exception as construct_error:
+                        print(f"DEBUG: Service account construction failed: {construct_error}")
 
-                        # Remove carriage returns (these definitely break JSON)
-                        fixed_content = fixed_content.replace('\r', '')
-
-                        print(f"DEBUG: After precise fix - length: {len(fixed_content)}")
-                        print(f"DEBUG: After fix - chars 565-570: '{fixed_content[565:570] if len(fixed_content) > 570 else 'N/A'}'")
-
-                        parsed = json_module.loads(fixed_content)
-                        print("DEBUG: Precise fix method successful")
-                        return parsed
-
-                    except json_module.JSONDecodeError as e2:
-                        print(f"DEBUG: Precise fix also failed: {e2}")
-                        print(f"DEBUG: Error position: {getattr(e2, 'pos', 'unknown')}")
-
-                        # Method 3: Parse and reconstruct JSON safely
-                        # This is a last resort that rebuilds the JSON structure
-                        raise ValueError(f"Unable to parse Google Service Account JSON after multiple fix attempts. Original error: {e}, Precise fix error: {e2}")
+                    # If all methods fail, raise comprehensive error
+                    raise ValueError(f"Unable to parse Google Service Account JSON after all attempts. JSON parsing consistently fails at character positions, likely due to corrupted base64 content in environment variable.")
             except json.JSONDecodeError as e:
                 raise ValueError(f"GOOGLE_SERVICE_ACCOUNT_JSON environment variable contains invalid JSON: {e}")
         
