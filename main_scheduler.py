@@ -25,8 +25,10 @@ def run_deployment_validation():
                 # Remove outer quotes if present
                 json_content = json_content[1:-1]
 
-            # Replace common escape sequence issues
-            json_content = json_content.replace('\\n', '\n').replace('\\"', '"').replace('\\\\', '\\')
+            # Handle newlines in private key properly
+            # First, ensure we have proper JSON structure
+            json_content = json_content.replace('\\n', '\\n')  # Keep escaped newlines as escaped
+            json_content = json_content.replace('\\"', '"').replace('\\\\', '\\')
 
             # Validate JSON structure
             parsed_json = json.loads(json_content)
@@ -53,8 +55,40 @@ def run_deployment_validation():
         print(f"✅ Selenium {selenium.__version__} available")
     except ImportError as e:
         print(f"❌ SELENIUM IMPORT FAILED: {e}")
-        print("This is the critical issue causing deployment failures")
-        sys.exit(1)
+        print("=== DEBUGGING SELENIUM INSTALLATION ===")
+
+        # Check Python path and installed packages
+        import subprocess
+        print(f"Python executable: {sys.executable}")
+        print(f"Python path: {sys.path}")
+
+        try:
+            # Check if pip list shows selenium
+            result = subprocess.run([sys.executable, '-m', 'pip', 'list'],
+                                  capture_output=True, text=True, timeout=30)
+            if 'selenium' in result.stdout.lower():
+                print("✅ Selenium found in pip list")
+                print("Issue: Selenium installed but not importable - possible PATH issue")
+            else:
+                print("❌ Selenium NOT found in pip list")
+                print("Issue: Selenium not installed in current environment")
+        except Exception as pip_e:
+            print(f"Could not check pip list: {pip_e}")
+
+        # Try installing selenium at runtime
+        print("=== ATTEMPTING RUNTIME SELENIUM INSTALLATION ===")
+        try:
+            subprocess.run([sys.executable, '-m', 'pip', 'install', 'selenium==4.15.0'],
+                          check=True, timeout=120)
+            print("✅ Runtime Selenium installation completed")
+
+            # Try import again
+            import selenium
+            print(f"✅ Selenium {selenium.__version__} now available after runtime install")
+        except Exception as install_e:
+            print(f"❌ Runtime installation failed: {install_e}")
+            print("CRITICAL: Cannot proceed without Selenium")
+            sys.exit(1)
 
     # 3. Test other critical imports
     try:
