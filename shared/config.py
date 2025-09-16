@@ -58,44 +58,110 @@ class ExportConfig:
                 print(f"DEBUG: After control char cleaning - length: {len(clean_content)}")
                 print(f"DEBUG: Clean char at 57: '{repr(clean_content[56:59]) if len(clean_content) > 58 else 'N/A'}'")
 
-                # STEP 2: Now handle the remaining newlines and escape sequences
+                # STEP 2: TARGETED FIXING FOR POSITION 612-613 ERROR
                 try:
-                    # Method 1: Simple newline escape (most common case)
-                    test_content = clean_content.replace('\n', '\\n').replace('\r', '').replace('\t', ' ')
+                    # Method 1: CHARACTER-BY-CHARACTER INSPECTION AT ERROR POSITION
+                    if len(clean_content) > 615:
+                        error_region = clean_content[605:620]
+                        print(f"DEBUG: Content around position 612: '{repr(error_region)}'")
+
+                        # Check for problematic characters at the error position
+                        char_at_612 = clean_content[612] if len(clean_content) > 612 else 'N/A'
+                        print(f"DEBUG: Character at position 612: '{repr(char_at_612)}' (ASCII: {ord(char_at_612) if char_at_612 != 'N/A' else 'N/A'})")
+
+                    # Method 1A: Fix specific escape sequence issues
+                    test_content = clean_content
+
+                    # Handle problematic escape sequences at the exact error position
+                    if len(test_content) > 612:
+                        # Common issues: \n not properly escaped, \u sequences, or literal backslashes
+                        test_content = test_content.replace('\\n', '\n').replace('\n', '\\n')  # Normalize newlines
+                        test_content = test_content.replace('\\r', '').replace('\r', '')       # Remove carriage returns
+                        test_content = test_content.replace('\\t', ' ').replace('\t', ' ')     # Normalize tabs
+                        test_content = test_content.replace('\\\\', '\\')                      # Fix double escapes
+
+                        # Fix potential \" issues that could cause position 612 errors
+                        test_content = test_content.replace('\\"', '"').replace('"', '\\"')   # Normalize quotes in values
+
                     parsed = json_module.loads(test_content)
-                    print("DEBUG: Simple cleaning method successful")
+                    print("DEBUG: Position 612 fix method successful")
                     return parsed
 
                 except json_module.JSONDecodeError as e1:
-                    print(f"DEBUG: Simple cleaning failed: {e1} at position {getattr(e1, 'pos', 'unknown')}")
+                    print(f"DEBUG: Position 612 fix failed: {e1} at position {getattr(e1, 'pos', 'unknown')}")
 
-                    # Method 2: More aggressive escape handling
+                    # Method 2: REGEX-BASED ESCAPE SEQUENCE REPAIR
                     try:
                         fixed_content = clean_content
 
-                        # Fix escape sequences systematically
-                        escape_replacements = [
-                            ('\n', '\\n'),      # Literal newlines to escaped
-                            ('\r', ''),         # Remove carriage returns
-                            ('\t', ' '),        # Tabs to spaces
-                            ('\\\\', '\\'),     # Double backslashes to single
-                        ]
+                        # Use regex to find and fix malformed escape sequences
+                        import re
 
-                        for old, new in escape_replacements:
-                            fixed_content = fixed_content.replace(old, new)
+                        # Fix problematic escape sequences that cause position 612-613 errors
+                        # Pattern 1: Fix unescaped quotes in JSON values
+                        fixed_content = re.sub(r'(?<!\\)"(?=.*")', '\\"', fixed_content)
 
-                        print(f"DEBUG: After escape handling - length: {len(fixed_content)}")
+                        # Pattern 2: Fix malformed newline sequences
+                        fixed_content = re.sub(r'\\n(?!"|,|})', '\\\\n', fixed_content)
+
+                        # Pattern 3: Fix broken escape sequences at word boundaries
+                        fixed_content = re.sub(r'\\(?!["\\/bfnrt])', '\\\\', fixed_content)
+
+                        print(f"DEBUG: After regex escape fixing - length: {len(fixed_content)}")
+
+                        # Show the region around position 612 after fixing
+                        if len(fixed_content) > 615:
+                            fixed_region = fixed_content[605:620]
+                            print(f"DEBUG: Fixed content around position 612: '{repr(fixed_region)}'")
 
                         parsed = json_module.loads(fixed_content)
-                        print("DEBUG: Escape handling method successful")
+                        print("DEBUG: Regex escape fixing method successful")
                         return parsed
 
                     except json_module.JSONDecodeError as e2:
-                        print(f"DEBUG: Escape handling failed: {e2} at position {getattr(e2, 'pos', 'unknown')}")
+                        print(f"DEBUG: Regex escape fixing failed: {e2} at position {getattr(e2, 'pos', 'unknown')}")
 
-                        # Method 3: Base64 reconstruction approach
+                        # Method 3: EMERGENCY CHARACTER REPLACEMENT AT POSITION 612
                         try:
-                            print("DEBUG: Attempting base64 reconstruction method")
+                            print("DEBUG: Attempting emergency character replacement at position 612")
+
+                            # Create a mutable list for character-by-character fixing
+                            char_list = list(clean_content)
+
+                            # Check and fix the specific character at position 612 that's causing issues
+                            if len(char_list) > 612:
+                                problematic_char = char_list[612]
+                                print(f"DEBUG: Character at 612 is: '{repr(problematic_char)}' (ASCII: {ord(problematic_char)})")
+
+                                # Common fixes for position 612 issues
+                                if problematic_char in ['\n', '\r', '\t']:
+                                    print("DEBUG: Replacing control character at position 612")
+                                    char_list[612] = ' '  # Replace with space
+                                elif problematic_char == '\\':
+                                    print("DEBUG: Escaping backslash at position 612")
+                                    char_list[612] = '\\\\'  # Escape the backslash
+                                elif problematic_char == '"':
+                                    print("DEBUG: Escaping quote at position 612")
+                                    char_list[612] = '\\"'  # Escape the quote
+
+                                # Also check surrounding characters
+                                for pos in range(max(0, 610), min(len(char_list), 615)):
+                                    char = char_list[pos]
+                                    if char in ['\x00', '\x01', '\x02', '\x03', '\x04', '\x05', '\x06', '\x07', '\x08', '\x0b', '\x0c', '\x0e', '\x0f']:
+                                        print(f"DEBUG: Removing null/control character at position {pos}")
+                                        char_list[pos] = ''
+
+                                emergency_content = ''.join(char_list)
+                                parsed = json_module.loads(emergency_content)
+                                print("DEBUG: Emergency character replacement method successful")
+                                return parsed
+
+                        except Exception as e3:
+                            print(f"DEBUG: Emergency character replacement failed: {e3}")
+
+                            # Method 4: Base64 reconstruction approach
+                            try:
+                                print("DEBUG: Attempting base64 reconstruction method")
 
                             # Look for the private_key field and reconstruct it properly
                             import base64

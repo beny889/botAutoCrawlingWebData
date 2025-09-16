@@ -247,13 +247,28 @@ def create_service_account_file():
             logger.error("❌ GOOGLE_SERVICE_ACCOUNT_JSON not found in environment")
             return False
 
-        # Validate JSON content
+        # Validate JSON content using ROBUST PARSING (same as config.py)
         try:
-            json_data = json.loads(json_content)
-            logger.info("✅ Service account JSON is valid")
-        except json.JSONDecodeError as e:
-            logger.error(f"❌ Invalid JSON in GOOGLE_SERVICE_ACCOUNT_JSON: {e}")
-            return False
+            # Use the enhanced JSON parsing from config.py
+            from shared.config import ExportConfig
+
+            logger.info("Using enhanced JSON parsing from config.py...")
+            json_data = ExportConfig.get_service_account_info()
+            logger.info("✅ Service account JSON parsed successfully with enhanced method")
+
+            # Convert back to JSON string for file creation
+            json_content = json.dumps(json_data, indent=2)
+
+        except Exception as e:
+            logger.error(f"❌ Enhanced JSON parsing failed: {e}")
+            logger.error("Attempting fallback direct parsing...")
+
+            try:
+                json_data = json.loads(json_content)
+                logger.info("✅ Fallback direct JSON parsing successful")
+            except json.JSONDecodeError as e2:
+                logger.error(f"❌ All JSON parsing methods failed: {e2}")
+                return False
 
         # Write to file
         service_file = Path('service-account-key.json')
