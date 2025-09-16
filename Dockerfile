@@ -24,14 +24,20 @@ RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add
 # Copy requirements first for better caching
 COPY requirements.txt .
 
-# Install Python dependencies with verbose output
+# Install Python dependencies with verbose output and error checking
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 RUN pip install --no-cache-dir -r requirements.txt --verbose
 
-# Verify critical dependencies are installed
-RUN python -c "import selenium; print(f'Selenium version: {selenium.__version__}')"
+# Force clean install if cache issues
+RUN pip uninstall -y selenium || true
+RUN pip install --no-cache-dir selenium==4.15.0 --force-reinstall
+
+# Verify critical dependencies are installed with detailed output
+RUN python -c "import sys; print(f'Python path: {sys.path}')"
+RUN python -c "import selenium; print(f'Selenium version: {selenium.__version__}'); print(f'Selenium path: {selenium.__file__}')"
 RUN python -c "import pandas; print(f'Pandas version: {pandas.__version__}')"
 RUN python -c "import gspread; print('Google Sheets API: OK')"
+RUN pip list | grep selenium
 
 # Copy automation scripts and shared components
 COPY main_scheduler.py .
@@ -48,14 +54,23 @@ ENV DISPLAY=:99
 ENV CHROME_BIN=/usr/bin/google-chrome-stable
 ENV CHROME_PATH=/usr/bin/google-chrome-stable
 
-# Create startup script for service account setup
+# Create startup script for service account setup and runtime verification
 RUN echo '#!/bin/bash\n\
+echo "=== RUNTIME VERIFICATION ==="\n\
+python -c "import sys; print(f\"Python version: {sys.version}\")" || exit 1\n\
+python -c "import selenium; print(f\"Selenium available: {selenium.__version__}\")" || exit 1\n\
+python -c "import pandas; print(f\"Pandas available: {pandas.__version__}\")" || exit 1\n\
+python -c "import gspread; print(\"Google Sheets API: OK\")" || exit 1\n\
+echo "=== ALL DEPENDENCIES OK ==="\n\
+\n\
 if [ -n "$GOOGLE_SERVICE_ACCOUNT_JSON" ]; then\n\
     echo "$GOOGLE_SERVICE_ACCOUNT_JSON" > /app/service-account-key.json\n\
     echo "Service account key created from environment variable"\n\
 else\n\
     echo "Warning: GOOGLE_SERVICE_ACCOUNT_JSON environment variable not set"\n\
 fi\n\
+\n\
+echo "Starting automation..."\n\
 exec python main_scheduler.py --all --headless --production --single-session\n' > /app/start.sh
 
 RUN chmod +x /app/start.sh
