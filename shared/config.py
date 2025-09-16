@@ -62,13 +62,19 @@ class ExportConfig:
             if not cls.TELEGRAM_CHAT_ID:
                 missing_vars.append('TELEGRAM_CHAT_ID')
         
-        # Validate Google service account
-        try:
-            cls.get_service_account_info()
-        except (FileNotFoundError, ValueError) as e:
-            missing_vars.append('GOOGLE_SERVICE_ACCOUNT_JSON or service-account-key.json file')
-        
-        if missing_vars:
+        # Validate Google service account (with deployment mode bypass)
+        import os
+        skip_validation = os.getenv('SKIP_STRICT_VALIDATION') == 'true'
+
+        if not skip_validation:
+            try:
+                cls.get_service_account_info()
+            except (FileNotFoundError, ValueError) as e:
+                missing_vars.append('GOOGLE_SERVICE_ACCOUNT_JSON or service-account-key.json file')
+        else:
+            print("INFO: Skipping strict service account validation in deployment mode")
+
+        if missing_vars and not skip_validation:
             raise EnvironmentError(
                 f"Missing required environment variables or files: {', '.join(missing_vars)}. "
                 f"Please set these variables before running the automation."
