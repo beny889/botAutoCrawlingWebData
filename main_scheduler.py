@@ -3,10 +3,53 @@ Main scheduler for all export automation tasks using Selenium
 Run multiple exports in sequence or parallel
 """
 
+# CRITICAL: Run deployment debug validation BEFORE any imports
+import os
+import sys
+import json
+from pathlib import Path
+
+def run_deployment_validation():
+    """Run critical deployment validation before importing Selenium"""
+    print("=== DEPLOYMENT VALIDATION (EMBEDDED) ===")
+
+    # 1. Create service account file from environment variable
+    json_content = os.environ.get('GOOGLE_SERVICE_ACCOUNT_JSON')
+    if json_content:
+        try:
+            json.loads(json_content)  # Validate JSON
+            Path('service-account-key.json').write_text(json_content)
+            print("✅ Service account file created")
+        except Exception as e:
+            print(f"❌ Service account creation failed: {e}")
+            sys.exit(1)
+    else:
+        print("⚠️ GOOGLE_SERVICE_ACCOUNT_JSON not set")
+
+    # 2. Test Selenium import (the main issue)
+    try:
+        import selenium
+        print(f"✅ Selenium {selenium.__version__} available")
+    except ImportError as e:
+        print(f"❌ SELENIUM IMPORT FAILED: {e}")
+        print("This is the critical issue causing deployment failures")
+        sys.exit(1)
+
+    # 3. Test other critical imports
+    try:
+        import pandas, gspread, requests
+        print("✅ All dependencies available")
+    except ImportError as e:
+        print(f"❌ Dependency import failed: {e}")
+        sys.exit(1)
+
+    print("✅ All validations passed - proceeding with automation")
+
+# Run validation immediately
+run_deployment_validation()
+
 import logging
 from datetime import datetime, timedelta
-from pathlib import Path
-import sys
 
 # Setup logging
 log_folder = Path("logs")
