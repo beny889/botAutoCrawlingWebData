@@ -42,10 +42,8 @@ RUN python -c "import pandas; print('Pandas OK')"
 RUN python -c "import gspread; print('Gspread OK')"
 
 # Copy application files
-COPY VERSION .
 COPY main_scheduler.py .
 COPY single_session_automation.py .
-COPY deployment_debug.py .
 COPY exports/ ./exports/
 COPY shared/ ./shared/
 
@@ -58,14 +56,12 @@ ENV DISPLAY=:99
 
 # Create service account key from environment variable at runtime
 RUN echo '#!/bin/bash\n\
-echo "=== DEPLOYMENT DEBUG MODE ==="\n\
-echo "Running comprehensive validation before automation..."\n\
-python deployment_debug.py\n\
-if [ $? -ne 0 ]; then\n\
-    echo "❌ Validation failed - check logs above"\n\
-    exit 1\n\
+echo "=== Runtime Startup ==="\n\
+if [ -n "$GOOGLE_SERVICE_ACCOUNT_JSON" ]; then\n\
+    echo "$GOOGLE_SERVICE_ACCOUNT_JSON" > /app/service-account-key.json\n\
+    echo "Service account created"\n\
 fi\n\
-echo "✅ All validations passed - starting automation"\n\
+echo "Starting automation..."\n\
 python main_scheduler.py --all --headless --production --single-session\n' > /app/start.sh && chmod +x /app/start.sh
 
 # Execute the startup script
