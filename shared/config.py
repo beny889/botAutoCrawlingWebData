@@ -85,57 +85,56 @@ class ExportConfig:
     # Backend base URL
     BACKEND_BASE_URL = "https://backend.andalanatk.com"
     
-    # Export configurations - TEMPORARY: Only pembayaran_koin enabled for testing
+    # Export configurations - ALL EXPORTS ENABLED
     EXPORTS = {
-        # TEMPORARILY DISABLED FOR TESTING - Uncomment to re-enable
-        # "transaksi": {
-        #     "name": "Transaction Export",
-        #     "url": f"{BACKEND_BASE_URL}/transaksi/index-export",
-        #     "google_sheet_url": "https://docs.google.com/spreadsheets/d/1dhLTUzUQ1ug4KPjU0Q8A8x38IioW5ZwKvVEIYHqf7aw",
-        #     "unique_key": "Transaksi ID",
-        #     "requires_date_filter": True,
-        #     "file_prefix": "export_transaksi",
-        #     "file_type": "excel",
-        #     "selectors": {
-        #         "start_date": 'input[name="start_date"]',
-        #         "end_date": 'input[name="end_date"]', 
-        #         "export_button": 'button.btn.btn-primary',
-        #         "export_button_xpath": '//button[contains(text(), "Export")]',
-        #         "date_format": "YYYY-MM-DD"
-        #     }
-        # },
-        # "point_trx": {
-        #     "name": "Point Transaction Export", 
-        #     "url": f"{BACKEND_BASE_URL}/point_transaction",
-        #     "google_sheet_url": "https://docs.google.com/spreadsheets/d/1sI_89ZVXa7zgxVuCwSLc3Q7eBZtZqOhGVPMjQCJ51wU",
-        #     "unique_key": "Point Transaction ID",
-        #     "requires_date_filter": True,
-        #     "file_prefix": "export_point_trx",
-        #     "file_type": "excel",
-        #     "selectors": {
-        #         "start_date": 'input[name="start"]',
-        #         "end_date": 'input[name="end"]',
-        #         "export_button": 'button.btn.btn-success.m3.expot-pdf',
-        #         "date_format": "YYYY-MM-DD"
-        #     }
-        # },
-        # "user": {
-        #     "name": "User Data Export",
-        #     "url": f"{BACKEND_BASE_URL}/user-front", 
-        #     "google_sheet_url": "https://docs.google.com/spreadsheets/d/1CLKjcByabVe6-8hTTcP6JtE56WulHIEOPkyHTQ2l0e8",
-        #     "unique_key": "User ID",
-        #     "requires_date_filter": True,
-        #     "file_prefix": "export_user",
-        #     "file_type": "excel",
-        #     "selectors": {
-        #         "start_date": 'input[id="filter-start"]',
-        #         "end_date": 'input[id="filter-end"]',
-        #         "export_button": 'button.btn.btn-success.m3.expot-pdf',
-        #         "date_format": "YYYY-MM-DD"
-        #     }
-        # },
+        "transaksi": {
+            "name": "Transaction Export",
+            "url": f"{BACKEND_BASE_URL}/transaksi/index-export",
+            "google_sheet_url": "https://docs.google.com/spreadsheets/d/1dhLTUzUQ1ug4KPjU0Q8A8x38IioW5ZwKvVEIYHqf7aw",
+            "unique_key": "Transaksi ID",
+            "requires_date_filter": True,
+            "file_prefix": "export_transaksi",
+            "file_type": "excel",
+            "selectors": {
+                "start_date": 'input[name="start_date"]',
+                "end_date": 'input[name="end_date"]',
+                "export_button": 'button.btn.btn-primary',
+                "export_button_xpath": '//button[contains(text(), "Export")]',
+                "date_format": "YYYY-MM-DD"
+            }
+        },
+        "point_trx": {
+            "name": "Point Transaction Export",
+            "url": f"{BACKEND_BASE_URL}/point_transaction",
+            "google_sheet_url": "https://docs.google.com/spreadsheets/d/1sI_89ZVXa7zgxVuCwSLc3Q7eBZtZqOhGVPMjQCJ51wU",
+            "unique_key": "Point Transaction ID",
+            "requires_date_filter": True,
+            "file_prefix": "export_point_trx",
+            "file_type": "excel",
+            "selectors": {
+                "start_date": 'input[name="start"]',
+                "end_date": 'input[name="end"]',
+                "export_button": 'button.btn.btn-success.m3.expot-pdf',
+                "date_format": "YYYY-MM-DD"
+            }
+        },
+        "user": {
+            "name": "User Data Export",
+            "url": f"{BACKEND_BASE_URL}/user-front",
+            "google_sheet_url": "https://docs.google.com/spreadsheets/d/1CLKjcByabVe6-8hTTcP6JtE56WulHIEOPkyHTQ2l0e8",
+            "unique_key": "User ID",
+            "requires_date_filter": True,
+            "file_prefix": "export_user",
+            "file_type": "excel",
+            "selectors": {
+                "start_date": 'input[id="filter-start"]',
+                "end_date": 'input[id="filter-end"]',
+                "export_button": 'button.btn.btn-success.m3.expot-pdf',
+                "date_format": "YYYY-MM-DD"
+            }
+        },
         
-        # ONLY ACTIVE EXPORT - Coin Payment for testing
+        # All exports now enabled
         "pembayaran_koin": {
             "name": "Coin Payment Export",
             "url": f"{BACKEND_BASE_URL}/koin_pay",

@@ -25,10 +25,17 @@ def run_deployment_validation():
                 # Remove outer quotes if present
                 json_content = json_content[1:-1]
 
-            # Handle newlines in private key properly
-            # First, ensure we have proper JSON structure
+            # Handle newlines in private key and control characters properly
+            # Fix common JSON formatting issues from environment variables
             json_content = json_content.replace('\\n', '\\n')  # Keep escaped newlines as escaped
             json_content = json_content.replace('\\"', '"').replace('\\\\', '\\')
+
+            # Remove any actual newlines that shouldn't be there (control characters)
+            json_content = json_content.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ')
+
+            # Clean up multiple spaces
+            import re
+            json_content = re.sub(r'\s+', ' ', json_content).strip()
 
             # Validate JSON structure
             parsed_json = json.loads(json_content)

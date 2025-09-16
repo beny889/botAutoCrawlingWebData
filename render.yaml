@@ -3,7 +3,7 @@
 
 services:
 - type: cron
-  name: andalan-atk-automation-validation-bypass
+  name: andalan-atk-automation-all-exports-enabled
   schedule: "0 1,11 * * *"  # 8:00 AM & 6:00 PM WIB (01:00 & 11:00 UTC)
   dockerfilePath: ./Dockerfile
   dockerContext: .
