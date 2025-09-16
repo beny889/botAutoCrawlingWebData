@@ -89,7 +89,8 @@ class ExportConfig:
 
                     # Check surrounding positions for null characters or other issues
                     for pos in range(max(0, 610), min(len(char_list), 615)):
-                        if ord(char_list[pos]) < 32 and char_list[pos] not in ['\t', '\n', '\r']:
+                        # Skip positions that contain multi-character strings from our fixes above
+                        if len(char_list[pos]) == 1 and ord(char_list[pos]) < 32 and char_list[pos] not in ['\t', '\n', '\r']:
                             print(f"DEBUG: EMERGENCY - Removing control character at position {pos}")
                             char_list[pos] = ' '  # Replace with space
 

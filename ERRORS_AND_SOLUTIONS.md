@@ -5,6 +5,72 @@
 
 ---
 
+## JSON PARSING ERRORS - September 16, 2025
+
+### 9. **GOOGLE SERVICE ACCOUNT JSON PARSING FAILURE** (Multiple Stages)
+
+#### Stage 1: Position 612 Misdiagnosis
+**Error**: `Invalid \escape: line 1 column 613 (char 612)`
+**Status**: ❌ MISDIAGNOSED - Wrong position targeted
+
+**What We Implemented**:
+- Emergency character replacement at position 612
+- Brute force character substitution
+- Regex-based escape sequence repair
+- Multiple fallback parsing methods
+
+**Actual Issue**: Error position was misleading after string transformations
+
+#### Stage 2: Control Character Discovery
+**Error**: `Invalid control character at: line 1 column 58 (char 57)`
+**Status**: ✅ CORRECTLY IDENTIFIED
+
+**Debug Output**:
+```
+DEBUG: Raw char at 57: '' \n ''
+DEBUG: Clean char at 57: '' \n ''  (still present after initial cleaning)
+```
+
+**Root Cause**: 28 newline characters throughout JSON breaking parsing
+**Solution**: ✅ Remove ALL control characters (ASCII 0-31)
+**Result**: Successfully removed all newlines, position 57 now shows `\\n`
+
+#### Stage 3: ord() String Length Bug (CURRENT)
+**Error**: `ord() expected a character, but string of length 2 found`
+**Status**: 🔍 IDENTIFIED - Ready for fix
+
+**Debug Output**:
+```
+DEBUG: REMOVING control character at position 57: '\n' (ASCII 10)
+[...28 newlines successfully removed...]
+DEBUG: Clean char at 57: '' \\n''  ← SUCCESS!
+DEBUG: EMERGENCY - Character at position 612: '\' (ASCII: 92)
+ERROR: ord() expected a character, but string of length 2 found
+```
+
+**Root Cause**: Bug in emergency replacement code
+- Line 82: `char_list[612] = '\\n'` (2 characters in single position)
+- Line 92: `ord(char_list[pos])` expects single character, gets 2
+- Same issue with `'\\\\'` and `'\\"'` assignments
+
+**Solution**: ✅ APPLIED - Add length validation:
+```python
+# Before (broken):
+if ord(char_list[pos]) < 32 and char_list[pos] not in ['\t', '\n', '\r']:
+
+# After (fixed):
+if len(char_list[pos]) == 1 and ord(char_list[pos]) < 32 and char_list[pos] not in ['\t', '\n', '\r']:
+```
+
+**Status**: ✅ FIXED - Line 93 in shared/config.py updated
+
+**Pattern Recognition**:
+- Errors aren't random - we're progressing through failure stages
+- Each fix reveals the next issue in the chain
+- Environment variable corruption is consistent (2522 chars, regular intervals)
+
+---
+
 ## Critical Architecture Issues
 
 ### 1. **SERVICE TYPE MISMATCH** (September 13, 2025)
