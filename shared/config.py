@@ -29,8 +29,11 @@ class ExportConfig:
         service_account_json = os.getenv('GOOGLE_SERVICE_ACCOUNT_JSON')
         if service_account_json:
             try:
-                # Apply same JSON cleaning as in main_scheduler.py
+                # AGGRESSIVE JSON cleaning to handle escape character issues
                 import re
+
+                print(f"DEBUG: Raw JSON length: {len(service_account_json)}")
+                print(f"DEBUG: Character at position 568: '{service_account_json[567:570] if len(service_account_json) > 568 else 'N/A'}'")
 
                 # Clean and fix JSON formatting issues
                 json_content = service_account_json.strip()
@@ -39,18 +42,29 @@ class ExportConfig:
                 if json_content.startswith('"') and json_content.endswith('"'):
                     json_content = json_content[1:-1]
 
-                # Remove any actual control characters (newlines, tabs, carriage returns)
-                json_content = json_content.replace('\n', '').replace('\r', '').replace('\t', '')
+                # AGGRESSIVE: Remove all control characters first
+                json_content = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', json_content)
 
-                # Fix common escape sequence patterns
+                # AGGRESSIVE: Fix ALL escape sequences systematically
+                # Step 1: Handle private keys which have -----BEGIN/END PRIVATE KEY-----
+                if '-----BEGIN PRIVATE KEY-----' in json_content:
+                    # Extract and fix private key section
+                    private_key_pattern = r'(-----BEGIN PRIVATE KEY-----.*?-----END PRIVATE KEY-----)'
+                    matches = re.findall(private_key_pattern, json_content, re.DOTALL)
+                    for match in matches:
+                        # Replace the private key content with properly escaped version
+                        fixed_key = match.replace('\n', '\\n').replace('\r', '')
+                        json_content = json_content.replace(match, fixed_key)
+
+                # Step 2: Fix remaining escape sequences
                 json_content = json_content.replace('\\"', '"')  # Fix escaped quotes
                 json_content = json_content.replace('\\\\', '\\')  # Fix double backslashes
 
-                # Handle private key newlines properly - they should be \\n in JSON
-                json_content = re.sub(r'(?<!\\)\\n', '\\\\n', json_content)
-
-                # Clean up any multiple spaces created by removing control characters
+                # Step 3: Clean up whitespace
                 json_content = re.sub(r'\s+', ' ', json_content).strip()
+
+                print(f"DEBUG: Cleaned JSON length: {len(json_content)}")
+                print(f"DEBUG: Cleaned preview: {json_content[:100]}...")
 
                 return json.loads(json_content)
             except json.JSONDecodeError as e:

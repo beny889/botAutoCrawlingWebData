@@ -178,9 +178,9 @@ def run_deployment_validation():
     os.environ['DEPLOYMENT_MODE'] = 'production'
     os.environ['SKIP_STRICT_VALIDATION'] = 'true'
 
-    # 5. TEMPORARY: Skip Google Sheets to test backend automation
-    os.environ['SKIP_GOOGLE_SHEETS'] = 'true'
-    print("🚧 TEMPORARY: Google Sheets upload disabled - testing backend automation only")
+    # 5. Re-enable Google Sheets now that backend automation is confirmed working
+    os.environ['SKIP_GOOGLE_SHEETS'] = 'false'
+    print("✅ Google Sheets integration re-enabled - full automation active")
 
     print("✅ All validations passed - proceeding with automation")
 
@@ -448,8 +448,10 @@ if __name__ == "__main__":
     
     # Default date fallback if none provided
     if args.date is None:
-        args.date = "2025-09-11"  # Use date with known data
-        logging.info(f"No date provided, using default: {args.date}")
+        # Use today's date for current data
+        from datetime import datetime
+        args.date = datetime.now().strftime("%Y-%m-%d")
+        logging.info(f"No date provided, using today's date: {args.date}")
     
     logging.info("="*50)
     
