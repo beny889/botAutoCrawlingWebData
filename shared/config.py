@@ -29,8 +29,9 @@ class ExportConfig:
         service_account_json = os.getenv('GOOGLE_SERVICE_ACCOUNT_JSON')
         if service_account_json:
             try:
-                # AGGRESSIVE JSON cleaning to handle escape character issues
+                # PRECISE JSON cleaning to handle escape character issues while preserving base64 content
                 import re
+                import json as json_module
 
                 print(f"DEBUG: Raw JSON length: {len(service_account_json)}")
                 print(f"DEBUG: Character at position 568: '{service_account_json[567:570] if len(service_account_json) > 568 else 'N/A'}'")
@@ -42,53 +43,51 @@ class ExportConfig:
                 if json_content.startswith('"') and json_content.endswith('"'):
                     json_content = json_content[1:-1]
 
-                # AGGRESSIVE: Remove all control characters first
-                json_content = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', json_content)
+                print(f"DEBUG: Before fixing - chars 565-570: '{json_content[565:570] if len(json_content) > 570 else 'N/A'}'")
 
-                # FINAL FIX: Target the specific character sequence at position 568
-                print(f"DEBUG: Before fix - chars 565-570: '{json_content[565:570] if len(json_content) > 570 else 'N/A'}'")
+                # PRECISE APPROACH: Only fix literal newlines that break JSON structure
+                # Preserve all base64 content in private_key field exactly as-is
 
-                # Fix the specific issue: character '5IH' at position 568 suggests broken escape sequence
-                # This is likely a broken \n sequence in the private key
+                try:
+                    # Method 1: Simple global newline replacement (preserves everything else)
+                    test_content = json_content.replace('\n', '\\n')
+                    parsed = json_module.loads(test_content)
+                    print("DEBUG: Simple global newline escape successful")
+                    return parsed
 
-                # Step 1: Fix all \n sequences that should be \\n in JSON
-                # Use a more specific approach for private key content
-                if '"private_key"' in json_content:
-                    # Find the private key value
-                    key_start = json_content.find('"private_key":"')
-                    if key_start != -1:
-                        key_value_start = key_start + len('"private_key":"')
-                        # Find the end of the private key value (next unescaped quote)
-                        key_end = key_value_start
-                        in_escape = False
-                        while key_end < len(json_content):
-                            if json_content[key_end] == '\\' and not in_escape:
-                                in_escape = True
-                            elif json_content[key_end] == '"' and not in_escape:
-                                break
-                            else:
-                                in_escape = False
-                            key_end += 1
+                except json_module.JSONDecodeError as e:
+                    print(f"DEBUG: Simple approach failed with error: {e}")
+                    print(f"DEBUG: Error at position: {getattr(e, 'pos', 'unknown')}")
 
-                        if key_end < len(json_content):
-                            # Extract the private key content
-                            private_key_content = json_content[key_value_start:key_end]
-                            # Fix any broken escape sequences in the private key
-                            fixed_key_content = private_key_content.replace('\\n', '\\\\n')
-                            # Replace in the main content
-                            json_content = json_content[:key_value_start] + fixed_key_content + json_content[key_end:]
+                    # Method 2: Only fix problematic escape sequences, preserve base64
+                    try:
+                        # Fix only the specific characters that cause JSON parsing issues
+                        # Don't touch anything that looks like base64 content
+                        fixed_content = json_content
 
-                # Step 2: Fix remaining common escape issues
-                json_content = json_content.replace('\\"', '"')  # Fix escaped quotes
-                json_content = json_content.replace('\\\\\\\\', '\\\\')  # Fix quadruple backslashes
+                        # Replace literal newlines with escaped newlines
+                        fixed_content = fixed_content.replace('\n', '\\n')
 
-                # Step 3: Clean up whitespace
-                json_content = re.sub(r'\s+', ' ', json_content).strip()
+                        # Fix any double backslashes that might have been created
+                        fixed_content = fixed_content.replace('\\\\n', '\\n')
 
-                print(f"DEBUG: Cleaned JSON length: {len(json_content)}")
-                print(f"DEBUG: Cleaned preview: {json_content[:100]}...")
+                        # Remove carriage returns (these definitely break JSON)
+                        fixed_content = fixed_content.replace('\r', '')
 
-                return json.loads(json_content)
+                        print(f"DEBUG: After precise fix - length: {len(fixed_content)}")
+                        print(f"DEBUG: After fix - chars 565-570: '{fixed_content[565:570] if len(fixed_content) > 570 else 'N/A'}'")
+
+                        parsed = json_module.loads(fixed_content)
+                        print("DEBUG: Precise fix method successful")
+                        return parsed
+
+                    except json_module.JSONDecodeError as e2:
+                        print(f"DEBUG: Precise fix also failed: {e2}")
+                        print(f"DEBUG: Error position: {getattr(e2, 'pos', 'unknown')}")
+
+                        # Method 3: Parse and reconstruct JSON safely
+                        # This is a last resort that rebuilds the JSON structure
+                        raise ValueError(f"Unable to parse Google Service Account JSON after multiple fix attempts. Original error: {e}, Precise fix error: {e2}")
             except json.JSONDecodeError as e:
                 raise ValueError(f"GOOGLE_SERVICE_ACCOUNT_JSON environment variable contains invalid JSON: {e}")
         
