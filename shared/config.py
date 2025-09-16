@@ -45,20 +45,42 @@ class ExportConfig:
                 # AGGRESSIVE: Remove all control characters first
                 json_content = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', json_content)
 
-                # AGGRESSIVE: Fix ALL escape sequences systematically
-                # Step 1: Handle private keys which have -----BEGIN/END PRIVATE KEY-----
-                if '-----BEGIN PRIVATE KEY-----' in json_content:
-                    # Extract and fix private key section
-                    private_key_pattern = r'(-----BEGIN PRIVATE KEY-----.*?-----END PRIVATE KEY-----)'
-                    matches = re.findall(private_key_pattern, json_content, re.DOTALL)
-                    for match in matches:
-                        # Replace the private key content with properly escaped version
-                        fixed_key = match.replace('\n', '\\n').replace('\r', '')
-                        json_content = json_content.replace(match, fixed_key)
+                # FINAL FIX: Target the specific character sequence at position 568
+                print(f"DEBUG: Before fix - chars 565-570: '{json_content[565:570] if len(json_content) > 570 else 'N/A'}'")
 
-                # Step 2: Fix remaining escape sequences
+                # Fix the specific issue: character '5IH' at position 568 suggests broken escape sequence
+                # This is likely a broken \n sequence in the private key
+
+                # Step 1: Fix all \n sequences that should be \\n in JSON
+                # Use a more specific approach for private key content
+                if '"private_key"' in json_content:
+                    # Find the private key value
+                    key_start = json_content.find('"private_key":"')
+                    if key_start != -1:
+                        key_value_start = key_start + len('"private_key":"')
+                        # Find the end of the private key value (next unescaped quote)
+                        key_end = key_value_start
+                        in_escape = False
+                        while key_end < len(json_content):
+                            if json_content[key_end] == '\\' and not in_escape:
+                                in_escape = True
+                            elif json_content[key_end] == '"' and not in_escape:
+                                break
+                            else:
+                                in_escape = False
+                            key_end += 1
+
+                        if key_end < len(json_content):
+                            # Extract the private key content
+                            private_key_content = json_content[key_value_start:key_end]
+                            # Fix any broken escape sequences in the private key
+                            fixed_key_content = private_key_content.replace('\\n', '\\\\n')
+                            # Replace in the main content
+                            json_content = json_content[:key_value_start] + fixed_key_content + json_content[key_end:]
+
+                # Step 2: Fix remaining common escape issues
                 json_content = json_content.replace('\\"', '"')  # Fix escaped quotes
-                json_content = json_content.replace('\\\\', '\\')  # Fix double backslashes
+                json_content = json_content.replace('\\\\\\\\', '\\\\')  # Fix quadruple backslashes
 
                 # Step 3: Clean up whitespace
                 json_content = re.sub(r'\s+', ' ', json_content).strip()
