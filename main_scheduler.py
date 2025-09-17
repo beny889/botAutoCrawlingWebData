@@ -254,10 +254,10 @@ class MainScheduler:
         try:
             automation = self.exports[export_type]()
             
-            # Handle user export (no date parameters)
+            # Handle all exports with date parameters
             if export_type == "user":
-                self.logger.info(f"User export: running without date parameters")
-                result = automation.run_export()
+                self.logger.info(f"User export: running with date parameters {start_date} to {end_date}")
+                result = automation.run_export(start_date, end_date)
             else:
                 self.logger.info(f"{export_type} export: running with start_date={start_date}, end_date={end_date}")
                 result = automation.run_export(start_date, end_date)

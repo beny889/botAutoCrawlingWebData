@@ -33,22 +33,22 @@ class UserExportAutomation:
         self.sheets_manager = SheetsManager(self.export_type)
         self.logger = logging.getLogger(__name__)
     
-    def run_export(self):
-        """Run the complete user data export process (no date filtering needed)"""
+    def run_export(self, start_date=None, end_date=None):
+        """Run the complete user data export process"""
         try:
-            self.logger.info("Starting user data export (full user list)")
-            
+            self.logger.info(f"Starting user data export with date range: {start_date} to {end_date}")
+
             # Setup browser
             self.connector.setup_browser()
-            
+
             # Login to backend
             self.connector.login_to_backend()
-            
+
             # Navigate to export page
             self.connector.navigate_to_export_page()
-            
-            # Download export file (no date filtering for user data)
-            downloaded_file = self.connector.download_export_file()
+
+            # Download export file with date filtering
+            downloaded_file = self.connector.download_export_file(start_date, end_date)
             
             # Upload to Google Sheets with smart validation
             upload_result = self.sheets_manager.upload_with_smart_validation(downloaded_file)
@@ -76,10 +76,10 @@ class UserExportAutomation:
             self.connector.cleanup()
 
 # Convenience function
-def run_user_export():
-    """Export complete user data"""
+def run_user_export(start_date=None, end_date=None):
+    """Export user data with optional date filtering"""
     automation = UserExportAutomation()
-    return automation.run_export()
+    return automation.run_export(start_date, end_date)
 
 # Main execution
 if __name__ == "__main__":
