@@ -63,7 +63,6 @@ class SheetsManager:
 
                 # Get record count from file
                 try:
-                    import pandas as pd
                     df = pd.read_excel(file_path)
                     record_count = len(df)
                     self.logger.info(f"File contains {record_count} data rows")
@@ -97,7 +96,7 @@ class SheetsManager:
                     # File has headers but no data - this is valid (no transactions for this date)
                     self.logger.info(f"HEADERS ONLY: {self.export_config['name']} - no data for this date range (valid state)")
                     self.logger.info(f"Header columns found: {list(new_df.columns)}")
-                    return True  # Treat as successful - no data to upload
+                    return {"success": True, "records": 0}  # Treat as successful - no data to upload
                 else:
                     # Completely empty file - this is an error
                     self.logger.error(f"CRITICAL ERROR: File is completely empty (no headers or data) for {self.export_config['name']}")
@@ -140,7 +139,8 @@ class SheetsManager:
                 self._upload_all_data(sheet, new_df)
             
             self.logger.info(f"Data uploaded to Google Sheets successfully for {self.export_config['name']}!")
-            
+            return {"success": True, "records": len(new_df)}
+
         except Exception as e:
             self.logger.error(f"Google Sheets upload failed for {self.export_config['name']}: {str(e)}")
             # Fallback to original method if smart upload fails
