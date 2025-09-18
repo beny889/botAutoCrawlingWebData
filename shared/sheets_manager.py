@@ -133,8 +133,10 @@ class SheetsManager:
                     self.logger.info("Sheet is empty - performing initial upload")
                     self._upload_all_data(sheet, new_df)
             else:
-                # Fallback to original method
-                self.logger.info("Using original upload method (destructive)")
+                # SAFETY CHANGE: Warn before destructive operation
+                self.logger.warning("DESTRUCTIVE MODE: This will clear all existing data!")
+                self.logger.warning("Consider using smart validation to preserve data")
+                # Only proceed if explicitly requested (this should be rare in production)
                 sheet.clear()
                 self._upload_all_data(sheet, new_df)
             
@@ -143,10 +145,12 @@ class SheetsManager:
 
         except Exception as e:
             self.logger.error(f"Google Sheets upload failed for {self.export_config['name']}: {str(e)}")
-            # Fallback to original method if smart upload fails
+            # CRITICAL FIX: Do NOT use destructive fallback to prevent data loss
             if use_smart_validation:
-                self.logger.info("Falling back to original upload method...")
-                self.upload_with_smart_validation(file_path, use_smart_validation=False)
+                self.logger.error("SMART VALIDATION FAILED - Preserving existing data to prevent data loss")
+                self.logger.error("Manual intervention required - check logs and retry manually")
+                # Return failure status instead of wiping data
+                return {"success": False, "records": 0, "error": str(e)}
             else:
                 raise
     
