@@ -468,14 +468,14 @@ TELEGRAM_CHAT_ID = "-4924885979"  # Group chat for automation alerts
 
 ### Render.com Cloud Deployment ✅
 
-**Automated scheduling with cron jobs - 2x daily execution:**
+**Automated scheduling with cron jobs - 3x daily execution:**
 
 #### Render.yaml Configuration:
 ```yaml
 services:
 - type: cron
-  name: automation-bot-2x-daily
-  schedule: "0 1,11 * * *"  # 8 AM & 6 PM WIB
+  name: automation-bot-3x-daily
+  schedule: "0 3,11,15 * * *"  # 10 AM, 6 PM & 10 PM WIB
   buildCommand: pip install -r requirements.txt && playwright install chromium
   startCommand: python main_scheduler.py --all --headless --production --single-session
   envVars:
@@ -486,11 +486,12 @@ services:
 ```
 
 #### Cloud Execution Schedule:
-- **Morning**: 08:00 WIB (01:00 UTC) - Export yesterday's completed data
-- **Evening**: 18:00 WIB (11:00 UTC) - Export today's real-time data
+- **Morning**: 10:00 WIB (03:00 UTC) - Export morning data
+- **Evening**: 18:00 WIB (11:00 UTC) - Export afternoon data
+- **Night**: 22:00 WIB (15:00 UTC) - Export evening data
 - **Duration**: ~1.28 minutes per execution
 - **Cost**: $7/month Render.com Background Worker
-- **Total Monthly Runtime**: ~77 minutes of compute time
+- **Total Monthly Runtime**: ~115 minutes of compute time
 
 #### Cloud Environment Features:
 - ✅ **Headless Only**: Zero browser window/GUI requirements
