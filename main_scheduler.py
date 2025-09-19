@@ -56,32 +56,32 @@ def run_deployment_validation():
 
             # Also keep the cleaned JSON in environment for application use
             os.environ['GOOGLE_SERVICE_ACCOUNT_JSON'] = json_content
-            print("✅ Service account file created successfully")
+            print("SUCCESS: Service account file created successfully")
 
             # Verify the file exists for validation
             if not Path('service-account-key.json').exists():
-                print("❌ Service account file was not created properly")
+                print("ERROR: Service account file was not created properly")
             else:
-                print(f"✅ Service account file verified: {Path('service-account-key.json').stat().st_size} bytes")
+                print(f"SUCCESS: Service account file verified: {Path('service-account-key.json').stat().st_size} bytes")
 
         except json.JSONDecodeError as e:
-            print(f"❌ Invalid JSON in service account: {e}")
+            print(f"ERROR: Invalid JSON in service account: {e}")
             print(f"JSON content preview: {json_content[:100]}...")
-            print("⚠️ Continuing without service account - Google Sheets may fail")
+            print("WARNING: Continuing without service account - Google Sheets may fail")
             # Don't exit, let the automation try to run
         except Exception as e:
-            print(f"❌ Service account creation failed: {e}")
-            print("⚠️ Continuing without service account - Google Sheets may fail")
+            print(f"ERROR: Service account creation failed: {e}")
+            print("WARNING: Continuing without service account - Google Sheets may fail")
             # Don't exit, let the automation try to run
     else:
-        print("⚠️ GOOGLE_SERVICE_ACCOUNT_JSON not set - Google Sheets authentication may fail")
+        print("WARNING: GOOGLE_SERVICE_ACCOUNT_JSON not set - Google Sheets authentication may fail")
 
     # 2. Test Selenium import (the main issue)
     try:
         import selenium
-        print(f"✅ Selenium {selenium.__version__} available")
+        print(f"SUCCESS: Selenium {selenium.__version__} available")
     except ImportError as e:
-        print(f"❌ SELENIUM IMPORT FAILED: {e}")
+        print(f"ERROR: SELENIUM IMPORT FAILED: {e}")
         print("=== DEBUGGING SELENIUM INSTALLATION ===")
 
         # Check Python path and installed packages
@@ -94,10 +94,10 @@ def run_deployment_validation():
             result = subprocess.run([sys.executable, '-m', 'pip', 'list'],
                                   capture_output=True, text=True, timeout=30)
             if 'selenium' in result.stdout.lower():
-                print("✅ Selenium found in pip list")
+                print("SUCCESS: Selenium found in pip list")
                 print("Issue: Selenium installed but not importable - possible PATH issue")
             else:
-                print("❌ Selenium NOT found in pip list")
+                print("ERROR: Selenium NOT found in pip list")
                 print("Issue: Selenium not installed in current environment")
         except Exception as pip_e:
             print(f"Could not check pip list: {pip_e}")
@@ -107,13 +107,13 @@ def run_deployment_validation():
         try:
             subprocess.run([sys.executable, '-m', 'pip', 'install', 'selenium==4.15.0'],
                           check=True, timeout=120)
-            print("✅ Runtime Selenium installation completed")
+            print("SUCCESS: Runtime Selenium installation completed")
 
             # Try import again
             import selenium
-            print(f"✅ Selenium {selenium.__version__} now available after runtime install")
+            print(f"SUCCESS: Selenium {selenium.__version__} now available after runtime install")
         except Exception as install_e:
-            print(f"❌ Runtime installation failed: {install_e}")
+            print(f"ERROR: Runtime installation failed: {install_e}")
             print("CRITICAL: Cannot proceed without Selenium")
             sys.exit(1)
 
@@ -139,9 +139,9 @@ def run_deployment_validation():
                 import_name = 'webdriver_manager'
 
             __import__(import_name)
-            print(f"✅ {dep_name}: Available")
+            print(f"SUCCESS: {dep_name}: Available")
         except ImportError:
-            print(f"❌ {dep_name}: Missing")
+            print(f"ERROR: {dep_name}: Missing")
             missing_deps.append((dep_name, version))
 
     if missing_deps:
@@ -153,9 +153,9 @@ def run_deployment_validation():
                 print(f"Installing {dep_name}=={version}...")
                 subprocess.run([sys.executable, '-m', 'pip', 'install', f'{dep_name}=={version}'],
                               check=True, timeout=120)
-                print(f"✅ {dep_name} installed successfully")
+                print(f"SUCCESS: {dep_name} installed successfully")
             except Exception as e:
-                print(f"❌ Failed to install {dep_name}: {e}")
+                print(f"ERROR: Failed to install {dep_name}: {e}")
 
         # Test imports again after installation
         print("=== VERIFYING INSTALLATIONS ===")
@@ -168,11 +168,11 @@ def run_deployment_validation():
                     import_name = 'webdriver_manager'
 
                 __import__(import_name)
-                print(f"✅ {dep_name}: Now available after installation")
+                print(f"SUCCESS: {dep_name}: Now available after installation")
             except ImportError as e:
-                print(f"❌ {dep_name}: Still missing after installation: {e}")
+                print(f"ERROR: {dep_name}: Still missing after installation: {e}")
 
-    print("✅ All dependency checks completed")
+    print("SUCCESS: All dependency checks completed")
 
     # 4. Set deployment environment flag to bypass strict validation
     os.environ['DEPLOYMENT_MODE'] = 'production'
@@ -180,9 +180,9 @@ def run_deployment_validation():
 
     # 5. Re-enable Google Sheets now that backend automation is confirmed working
     os.environ['SKIP_GOOGLE_SHEETS'] = 'false'
-    print("✅ Google Sheets integration re-enabled - full automation active")
+    print("SUCCESS: Google Sheets integration re-enabled - full automation active")
 
-    print("✅ All validations passed - proceeding with automation")
+    print("SUCCESS: All validations passed - proceeding with automation")
 
 # Run validation immediately
 run_deployment_validation()

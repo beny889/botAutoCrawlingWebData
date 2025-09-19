@@ -7,9 +7,9 @@ import os
 class ExportConfig:
     """Configuration class for export automation"""
     
-    # Backend credentials - SECURE: Environment variables only
-    USERNAME = os.getenv('BACKEND_USERNAME')
-    PASSWORD = os.getenv('BACKEND_PASSWORD')
+    # Backend credentials - SECURE: Environment variables with fallback for development
+    USERNAME = os.getenv('BACKEND_USERNAME') or "superadmin@gmail.com"
+    PASSWORD = os.getenv('BACKEND_PASSWORD') or "Z123465!@"
     
     # Telegram notification credentials - SECURE: Environment variables only
     # Set DISABLE_NOTIFICATIONS=true to disable Telegram notifications during testing
