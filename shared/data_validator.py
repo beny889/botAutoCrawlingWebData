@@ -95,10 +95,18 @@ class DataValidator:
         if duplicate_indices:
             duplicate_subset = new_data.iloc[duplicate_indices]
             change_analysis = self.compare_data_changes(duplicate_subset, existing_data)
-            
-            # Map back to original indices
-            updated = [duplicate_indices[i] for i in change_analysis["updated"]]
-            unchanged = [duplicate_indices[i] for i in change_analysis["unchanged"]]
+
+            # FIXED: Map back to original indices safely
+            updated = []
+            unchanged = []
+
+            for i in change_analysis["updated"]:
+                if i < len(duplicate_indices):
+                    updated.append(duplicate_indices[i])
+
+            for i in change_analysis["unchanged"]:
+                if i < len(duplicate_indices):
+                    unchanged.append(duplicate_indices[i])
         else:
             updated = []
             unchanged = []
