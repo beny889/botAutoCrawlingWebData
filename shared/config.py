@@ -332,7 +332,8 @@ class ExportConfig:
             "name": "Point Transaction Export",
             "url": f"{BACKEND_BASE_URL}/point_transaction",
             "google_sheet_url": "https://docs.google.com/spreadsheets/d/1sI_89ZVXa7zgxVuCwSLc3Q7eBZtZqOhGVPMjQCJ51wU",
-            "unique_key": "Point Transaction ID",
+            "unique_key": "Nomor Transaksi QRCODE",  # Legacy fallback
+            "composite_key_columns": ["Nomor Transaksi QRCODE", "Cabang", "Checker", "Nama", "Tipe", "Jumlah Total Belanja", "Jumlah", "Tanggal Belanja", "Tanggal Scan", "Status", "Alasan Batal"],
             "requires_date_filter": True,
             "file_prefix": "export_point_trx",
             "file_type": "excel",
@@ -347,7 +348,8 @@ class ExportConfig:
             "name": "User Data Export",
             "url": f"{BACKEND_BASE_URL}/user-front",
             "google_sheet_url": "https://docs.google.com/spreadsheets/d/1CLKjcByabVe6-8hTTcP6JtE56WulHIEOPkyHTQ2l0e8",
-            "unique_key": "User ID",
+            "unique_key": "User ID",  # Legacy fallback
+            "composite_key_columns": ["#ID/ Nama", "Email"],  # User specified composite key
             "requires_date_filter": True,
             "file_prefix": "export_user",
             "file_type": "excel",
@@ -363,8 +365,9 @@ class ExportConfig:
         "pembayaran_koin": {
             "name": "Coin Payment Export",
             "url": f"{BACKEND_BASE_URL}/koin_pay",
-            "google_sheet_url": "https://docs.google.com/spreadsheets/d/1KWEMz3R5N1EnlS9NdJS9NiQRUsBuTAIfEoaYpS2NhAk", 
-            "unique_key": "Payment ID",
+            "google_sheet_url": "https://docs.google.com/spreadsheets/d/1KWEMz3R5N1EnlS9NdJS9NiQRUsBuTAIfEoaYpS2NhAk",
+            "unique_key": "Payment ID",  # Legacy fallback
+            "composite_key_columns": "ALL_EXCEPT_NO",  # Special marker to use all columns except "No"
             "requires_date_filter": True,
             "file_prefix": "export_pembayaran_koin",
             "file_type": "excel",

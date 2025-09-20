@@ -108,9 +108,10 @@ class SheetsManager:
             new_df = self._clean_data_for_json(new_df)
             
             if use_smart_validation:
-                # Initialize data validator with export-specific unique key
+                # Initialize data validator with export-specific unique key and composite columns
                 unique_key = self.export_config.get("unique_key", "ID")
-                validator = DataValidator(unique_key=unique_key)
+                composite_key_columns = self.export_config.get("composite_key_columns", None)
+                validator = DataValidator(unique_key=unique_key, composite_key_columns=composite_key_columns)
                 
                 # Read existing sheet data
                 existing_df = validator.read_existing_sheet_data(sheet)
