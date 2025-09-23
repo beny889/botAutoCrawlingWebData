@@ -386,6 +386,19 @@ class ExportConfig:
         "https://spreadsheets.google.com/feeds",
         "https://www.googleapis.com/auth/drive"
     ]
+
+    # Google Sheets API retry and rate limiting configuration
+    GOOGLE_SHEETS_RETRY_CONFIG = {
+        "max_retries": 5,                    # Maximum number of retry attempts
+        "base_delay": 2.0,                   # Base delay in seconds for exponential backoff
+        "max_delay": 60.0,                   # Maximum delay between retries
+        "exponential_base": 2,               # Exponential backoff multiplier
+        "jitter": True,                      # Add random jitter to prevent thundering herd
+        "retry_status_codes": [429, 500, 502, 503, 504],  # HTTP status codes to retry on
+        "rate_limit_delay": 1.0,             # Delay between API calls to prevent rate limiting
+        "batch_delay": 2.0,                  # Additional delay for batch operations
+        "timeout": 120                       # Request timeout in seconds
+    }
     
     # Browser settings - Production Ready Configuration
     BROWSER_CONFIG = {

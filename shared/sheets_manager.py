@@ -6,6 +6,8 @@ import pandas as pd
 import gspread
 import logging
 import time
+import random
+import requests
 from google.oauth2.service_account import Credentials
 from .data_validator import DataValidator
 from .config import ExportConfig
@@ -17,7 +19,10 @@ class SheetsManager:
         self.export_type = export_type
         self.export_config = ExportConfig.get_export_config(export_type)
         self.logger = logging.getLogger(__name__)
-        
+
+        # Get retry configuration
+        self.retry_config = ExportConfig.GOOGLE_SHEETS_RETRY_CONFIG
+
         # Initialize Google Sheets client
         self._setup_google_client()
     
@@ -45,6 +50,85 @@ class SheetsManager:
         except Exception as e:
             self.logger.error(f"Failed to setup Google Sheets client: {str(e)}")
             raise
+
+    def _calculate_retry_delay(self, attempt: int) -> float:
+        """Calculate delay for exponential backoff with optional jitter"""
+        base_delay = self.retry_config["base_delay"]
+        exponential_base = self.retry_config["exponential_base"]
+        max_delay = self.retry_config["max_delay"]
+
+        # Calculate exponential backoff delay
+        delay = base_delay * (exponential_base ** attempt)
+        delay = min(delay, max_delay)
+
+        # Add jitter if enabled
+        if self.retry_config["jitter"]:
+            # Add random jitter ±25% of the delay
+            jitter = delay * 0.25 * (2 * random.random() - 1)
+            delay += jitter
+
+        return max(0, delay)
+
+    def _is_retryable_error(self, error: Exception) -> bool:
+        """Check if an error is retryable based on configuration"""
+        if hasattr(error, 'response') and hasattr(error.response, 'status_code'):
+            return error.response.status_code in self.retry_config["retry_status_codes"]
+
+        # Check for specific gspread errors that indicate temporary issues
+        error_str = str(error).lower()
+        retryable_errors = [
+            'service unavailable',
+            'temporarily unavailable',
+            'rate limit exceeded',
+            'quota exceeded',
+            'internal error',
+            'timeout',
+            'connection error',
+            'temporary failure'
+        ]
+
+        return any(retryable_msg in error_str for retryable_msg in retryable_errors)
+
+    def _execute_with_retry(self, operation_name: str, operation_func, *args, **kwargs):
+        """Execute a Google Sheets operation with retry mechanism"""
+        max_retries = self.retry_config["max_retries"]
+
+        for attempt in range(max_retries + 1):
+            try:
+                # Add rate limiting delay before each API call
+                if attempt > 0:
+                    delay = self._calculate_retry_delay(attempt - 1)
+                    self.logger.info(f"{operation_name}: Attempt {attempt + 1}/{max_retries + 1} after {delay:.2f}s delay")
+                    time.sleep(delay)
+                else:
+                    # Small delay even on first attempt to prevent rate limiting
+                    time.sleep(self.retry_config["rate_limit_delay"])
+
+                # Execute the operation
+                result = operation_func(*args, **kwargs)
+
+                if attempt > 0:
+                    self.logger.info(f"{operation_name}: Succeeded on attempt {attempt + 1}")
+
+                return result
+
+            except Exception as e:
+                is_last_attempt = attempt == max_retries
+                is_retryable = self._is_retryable_error(e)
+
+                self.logger.warning(f"{operation_name}: Attempt {attempt + 1} failed: {str(e)}")
+
+                if is_last_attempt or not is_retryable:
+                    if is_last_attempt and is_retryable:
+                        self.logger.error(f"{operation_name}: All {max_retries + 1} attempts failed. Last error: {str(e)}")
+                    else:
+                        self.logger.error(f"{operation_name}: Non-retryable error: {str(e)}")
+                    raise
+
+                self.logger.info(f"{operation_name}: Retryable error detected, will retry...")
+
+        # This should never be reached, but just in case
+        raise Exception(f"{operation_name}: Unexpected retry loop exit")
     
     def upload_with_smart_validation(self, file_path, use_smart_validation=True):
         """Upload data with smart validation and duplicate detection"""
@@ -75,8 +159,11 @@ class SheetsManager:
                 return {"success": False, "records": 0}
 
         try:
-            # Open Google Sheet
-            sheet = self.gc.open_by_url(self.export_config["google_sheet_url"]).sheet1
+            # Open Google Sheet with retry mechanism
+            sheet = self._execute_with_retry(
+                "Open Google Sheet",
+                lambda: self.gc.open_by_url(self.export_config["google_sheet_url"]).sheet1
+            )
             
             # Read Excel file
             new_df = pd.read_excel(file_path)
@@ -113,8 +200,11 @@ class SheetsManager:
                 composite_key_columns = self.export_config.get("composite_key_columns", None)
                 validator = DataValidator(unique_key=unique_key, composite_key_columns=composite_key_columns)
                 
-                # Read existing sheet data
-                existing_df = validator.read_existing_sheet_data(sheet)
+                # Read existing sheet data with retry mechanism
+                existing_df = self._execute_with_retry(
+                    "Read existing sheet data",
+                    lambda: validator.read_existing_sheet_data(sheet)
+                )
                 
                 if not existing_df.empty:
                     # Prepare smart upload data
@@ -127,19 +217,31 @@ class SheetsManager:
                     for operation in upload_plan["operations"]:
                         self.logger.info(f"  - {operation}")
                     
-                    # Execute smart upload
-                    self._execute_smart_upload(sheet, upload_plan, existing_df)
+                    # Execute smart upload with retry mechanism
+                    self._execute_with_retry(
+                        "Execute smart upload",
+                        lambda: self._execute_smart_upload(sheet, upload_plan, existing_df)
+                    )
                 else:
                     # Empty sheet - do normal upload
                     self.logger.info("Sheet is empty - performing initial upload")
-                    self._upload_all_data(sheet, new_df)
+                    self._execute_with_retry(
+                        "Initial upload to empty sheet",
+                        lambda: self._upload_all_data(sheet, new_df)
+                    )
             else:
                 # SAFETY CHANGE: Warn before destructive operation
                 self.logger.warning("DESTRUCTIVE MODE: This will clear all existing data!")
                 self.logger.warning("Consider using smart validation to preserve data")
                 # Only proceed if explicitly requested (this should be rare in production)
-                sheet.clear()
-                self._upload_all_data(sheet, new_df)
+                self._execute_with_retry(
+                    "Clear sheet (destructive)",
+                    lambda: sheet.clear()
+                )
+                self._execute_with_retry(
+                    "Upload all data (destructive)",
+                    lambda: self._upload_all_data(sheet, new_df)
+                )
             
             self.logger.info(f"Data uploaded to Google Sheets successfully for {self.export_config['name']}!")
             return {"success": True, "records": len(new_df)}
@@ -168,22 +270,23 @@ class SheetsManager:
         return df
     
     def _upload_all_data(self, sheet, df):
-        """Upload all data to sheet (original method)"""
+        """Upload all data to sheet (original method) with built-in rate limiting"""
         data_to_upload = [df.columns.values.tolist()] + df.values.tolist()
-        
+
         if len(data_to_upload) > 1000:
             self.logger.info("Large dataset detected, uploading in batches...")
-            # Upload headers
+            # Upload headers with rate limiting delay
             sheet.update('A1', [data_to_upload[0]])
-            
-            # Upload in chunks
+            time.sleep(self.retry_config["batch_delay"])
+
+            # Upload in chunks with rate limiting
             chunk_size = 1000
             for i in range(1, len(data_to_upload), chunk_size):
                 chunk = data_to_upload[i:i+chunk_size]
                 range_name = f'A{i+1}'
                 sheet.update(range_name, chunk)
                 self.logger.info(f"Uploaded chunk {i//chunk_size + 1}")
-                time.sleep(1)  # Rate limiting
+                time.sleep(self.retry_config["batch_delay"])  # Enhanced rate limiting for batches
         else:
             sheet.update('A1', data_to_upload)
     
@@ -201,7 +304,7 @@ class SheetsManager:
             if new_data_values:
                 range_name = f'A{last_row}'
                 sheet.update(range_name, new_data_values)
-                time.sleep(1)
+                time.sleep(self.retry_config["rate_limit_delay"])  # Rate limiting between operations
         
         # Update existing records (simplified - just log for now)
         if not upload_plan["update_data"].empty:
@@ -215,21 +318,30 @@ class SheetsManager:
         self.logger.info("Smart upload completed!")
     
     def get_sheet_info(self):
-        """Get basic information about the Google Sheet"""
+        """Get basic information about the Google Sheet with retry mechanism"""
         try:
-            sheet = self.gc.open_by_url(self.export_config["google_sheet_url"]).sheet1
-            all_records = sheet.get_all_records()
-            
+            # Open sheet with retry
+            sheet = self._execute_with_retry(
+                "Open sheet for info",
+                lambda: self.gc.open_by_url(self.export_config["google_sheet_url"]).sheet1
+            )
+
+            # Get all records with retry
+            all_records = self._execute_with_retry(
+                "Get all sheet records",
+                lambda: sheet.get_all_records()
+            )
+
             info = {
                 "title": sheet.title,
                 "rows": len(all_records),
                 "columns": len(all_records[0]) if all_records else 0,
                 "last_updated": "N/A"  # Could add timestamp tracking later
             }
-            
+
             self.logger.info(f"Sheet info for {self.export_config['name']}: {info}")
             return info
-            
+
         except Exception as e:
             self.logger.error(f"Failed to get sheet info: {str(e)}")
             return None
