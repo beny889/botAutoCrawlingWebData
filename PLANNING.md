@@ -172,7 +172,7 @@ Files    Auth Once    (Excel)     (PDF)      (PDF)     (PDF)      Upload x4     
 #### Deployment Configuration
 - **render.yaml**: Declarative service configuration with multi-browser installation
 - **Environment Variables**: Secure credential management in cloud
-- **Cron Scheduling**: "0 1,11 * * *" (8 AM & 6 PM WIB)
+- **Cron Scheduling**: "0 3,11,15 * * *" (10 AM, 6 PM & 10 PM WIB)
 - **Build Process**: Comprehensive triple-method installation (Snap + APT + Manual) with advanced error handling
 
 #### Monitoring & Alerting

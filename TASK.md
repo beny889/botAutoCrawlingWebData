@@ -670,8 +670,8 @@ UPDATE_MODES = {
 **Status**: ✅ Complete
 
 #### Cloud Infrastructure Implemented:
-- [x] **render.yaml Configuration**: Cron job setup for 2x daily execution
-- [x] **Schedule Definition**: "0 1,11 * * *" (8 AM & 6 PM WIB = UTC+7)
+- [x] **render.yaml Configuration**: Cron job setup for 3x daily execution
+- [x] **Schedule Definition**: "0 3,11,15 * * *" (10 AM, 6 PM & 10 PM WIB = UTC+7)
 - [x] **Environment Variables**: Secure credential storage in cloud
 - [x] **Build Process**: Automated dependency installation with Playwright
 - [x] **Timezone Configuration**: Asia/Jakarta (WIB) timezone support
