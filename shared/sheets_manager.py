@@ -271,6 +271,11 @@ class SheetsManager:
     
     def _upload_all_data(self, sheet, df):
         """Upload all data to sheet (original method) with built-in rate limiting"""
+        # Check and expand sheet if needed before uploading
+        total_rows_needed = len(df) + 1  # +1 for header
+        self.logger.info(f"Checking sheet capacity for {total_rows_needed} total rows...")
+        self._check_and_expand_sheet_if_needed(sheet, total_rows_needed)
+
         data_to_upload = [df.columns.values.tolist()] + df.values.tolist()
 
         if len(data_to_upload) > 1000:
@@ -292,13 +297,19 @@ class SheetsManager:
     
     def _execute_smart_upload(self, sheet, upload_plan, existing_df):
         """Execute smart upload plan"""
+        # Check and expand sheet if needed before uploading
+        total_new_rows = len(upload_plan["append_data"]) if not upload_plan["append_data"].empty else 0
+        if total_new_rows > 0:
+            self.logger.info(f"Checking sheet capacity for {total_new_rows} new rows...")
+            self._check_and_expand_sheet_if_needed(sheet, total_new_rows)
+
         # Append new records
         if not upload_plan["append_data"].empty:
             self.logger.info(f"Appending {len(upload_plan['append_data'])} new records...")
-            
+
             # Find the last row with data
             last_row = len(existing_df) + 2  # +1 for header, +1 for next row
-            
+
             # Append new data
             new_data_values = upload_plan["append_data"].values.tolist()
             if new_data_values:
@@ -316,7 +327,82 @@ class SheetsManager:
             self.logger.info(f"Skipped {len(upload_plan['skip_data'])} unchanged records")
         
         self.logger.info("Smart upload completed!")
-    
+
+    def _check_and_expand_sheet_if_needed(self, sheet, data_rows_to_add):
+        """Check if sheet has enough space and expand if needed"""
+        try:
+            # Get current sheet properties
+            spreadsheet = sheet.spreadsheet
+            worksheet_properties = None
+
+            # Find the current worksheet properties
+            for ws in spreadsheet.worksheets():
+                if ws.id == sheet.id:
+                    worksheet_properties = {
+                        'sheetId': sheet.id,
+                        'gridProperties': {
+                            'rowCount': ws.row_count,
+                            'columnCount': ws.col_count
+                        }
+                    }
+                    break
+
+            if not worksheet_properties:
+                self.logger.warning("Could not get worksheet properties")
+                return False
+
+            current_rows = worksheet_properties['gridProperties']['rowCount']
+            current_cols = worksheet_properties['gridProperties']['columnCount']
+
+            # Check how many rows we have data in
+            all_values = sheet.get_all_values()
+            used_rows = len([row for row in all_values if any(cell.strip() for cell in row)])
+
+            # Calculate space needed (with buffer)
+            space_needed = used_rows + data_rows_to_add + 100  # Add 100 row buffer
+
+            self.logger.info(f"Sheet capacity check: {used_rows} used rows, {current_rows} total rows, need space for {data_rows_to_add} new rows")
+
+            if space_needed > current_rows:
+                # Need to expand the sheet
+                new_row_count = max(space_needed, current_rows * 2)  # At least double current size
+                new_row_count = min(new_row_count, 10000000)  # Google Sheets limit is 10M cells
+
+                self.logger.info(f"Expanding sheet from {current_rows} to {new_row_count} rows")
+
+                # Prepare the expansion request
+                expansion_request = {
+                    'requests': [{
+                        'updateSheetProperties': {
+                            'properties': {
+                                'sheetId': sheet.id,
+                                'gridProperties': {
+                                    'rowCount': new_row_count,
+                                    'columnCount': current_cols
+                                }
+                            },
+                            'fields': 'gridProperties.rowCount'
+                        }
+                    }]
+                }
+
+                # Execute the expansion with retry
+                self._execute_with_retry(
+                    "Expand sheet rows",
+                    lambda: spreadsheet.batch_update(expansion_request)
+                )
+
+                self.logger.info(f"✅ Sheet expanded successfully to {new_row_count} rows")
+                return True
+            else:
+                self.logger.info("Sheet has sufficient space - no expansion needed")
+                return True
+
+        except Exception as e:
+            self.logger.error(f"Failed to check/expand sheet: {str(e)}")
+            # Don't fail the upload for expansion issues - try to continue
+            return False
+
     def get_sheet_info(self):
         """Get basic information about the Google Sheet with retry mechanism"""
         try:
